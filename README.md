@@ -111,6 +111,39 @@
 |---|---|
 | UTIL_auto_arrange | Arrange a network: left-to-right flow, no overlapping nodes (td_organize) |
 
+## Native operators vs GLSL
+Components are built from built-in TouchDesigner operators where possible, so a non-programmer can read the network; GLSL remains only for mathy cores or where native would cost more than 20 % GPU (see each component README's "Implementation" section). GPU cost of the 25 reworked components, old GLSL version → current, measured with `tools/bench.py --against` (interleaved medians, standard noise-TOP / grid-POP input, only ops that cooked counted):
+
+| Component | 1280×720 | 1920×1080 |
+|---|---|---|
+| MAT_decay | 3.67 → 3.77 ms (+3%) | 3.66 → 3.50 ms (-4%) |
+| MAT_molten | 2.96 → 2.99 ms (+1%) | 3.01 → 2.89 ms (-4%) |
+| POP_mesh_deformer | 0.48 → 0.55 ms (+13%) | 0.50 → 0.55 ms (+10%) |
+| POP_particle_emitter | 3.02 → 2.82 ms (-7%) | 2.23 → 1.92 ms (-14%) |
+| POP_plexus_points | 7.21 → 7.42 ms (+3%) | 7.67 → 6.83 ms (-11%) |
+| POP_pointcloud_dissolve | 2.50 → 2.49 ms (-0%) | 1.74 → 2.02 ms (+16%) |
+| POP_tentacles | 90.51 → 95.32 ms (+5%) | 86.84 → 95.38 ms (+10%) |
+| POP_terrain | 2.21 → 1.16 ms (-48%) | 2.28 → 2.02 ms (-11%) |
+| TOP_depth_fog | 0.63 → 0.66 ms (+4%) | 0.84 → 0.86 ms (+2%) |
+| TOP_dof_motionblur | 1.94 → 1.69 ms (-13%) | 2.57 → 2.20 ms (-14%) |
+| TOP_false_color | 0.26 → 0.24 ms (-6%) | 0.44 → 0.43 ms (-4%) |
+| TOP_feedback_trails | 0.23 → 0.24 ms (+1%) | 0.31 → 0.34 ms (+10%) |
+| TOP_filmic_look | 8.61 → 2.05 ms (-76%) | 19.49 → 2.85 ms (-85%) |
+| TOP_flow_field_lines | 1.74 → 2.04 ms (+17%) | 2.17 → 2.18 ms (+0%) |
+| TOP_glass_refraction | 0.65 → 0.63 ms (-2%) | 0.82 → 0.80 ms (-2%) |
+| TOP_glitch | 0.58 → 0.54 ms (-7%) | 0.94 → 0.78 ms (-17%) |
+| TOP_instance_grid | 0.79 → 0.80 ms (+2%) | 0.93 → 1.10 ms (+19%) |
+| TOP_normal_shade | 0.65 → 0.63 ms (-2%) | 0.69 → 0.78 ms (+14%) |
+| TOP_optical_flow | 1.33 → 1.48 ms (+12%) | 1.59 → 1.70 ms (+7%) |
+| TOP_slit_scan | 0.50 → 0.26 ms (-48%) | 0.93 → 0.34 ms (-63%) |
+| TOP_toon_outline | 1.94 → 0.41 ms (-79%) | 2.53 → 0.62 ms (-75%) |
+| TOP_tracker_hud | 0.94 → 0.48 ms (-50%) | 1.61 → 0.65 ms (-60%) |
+| TOP_type_overlay | 0.36 → 0.36 ms (-2%) | 0.68 → 0.68 ms (+1%) |
+| TOP_vhs_crt | 0.53 → 0.51 ms (-3%) | 0.74 → 0.87 ms (+18%) |
+| TOP_video_synth | 0.74 → 0.76 ms (+2%) | 1.26 → 1.18 ms (-6%) |
+
+Differences within about ±15 % are measurement noise on this machine.
+
 ## Building and validating
 **Requires:** TouchDesigner 2025.32820+, [td-mcp](https://github.com/spwilson27/td-mcp) checked out at `~/software/td-mcp` (or `TD_MCP_HOME`) with its `.venv`, and this repo's `td_organize` package (bundled; see `td_organize/README.md`), which lays out every network so no nodes overlap. Components find the library through `TD_PLUGINS_HOME` (default `~/software/td-plugins`) for Help and Snippets.
 
@@ -138,6 +171,7 @@ $PY tools/tdctl.py stop dev
 - **Waits are in cooked frames** (`tools/tdwait.py`), not seconds, so validation is exact on a loaded machine. `tools/contact_sheets.py` makes the PNG grids.
 
 - `tools/build.sh <inst> <NAME>`: the full pipeline for one component (build.py → `tox/_raw` → `tools/conform.py` → `tox/<FAMILY>/<NAME>.tox` → validate → snippet build → snippet validate).
+- `tools/bench.py <inst> <NAME> --against <old.tox>`: GPU cost of a component vs an older version (interleaved, medians), used for native-vs-GLSL decisions.
 - `tools/build_all.sh [-j N] [--force] [--only NAME ...]`: the whole library in parallel across N private scratch TouchDesigner instances (default ~half the CPU cores, max 6). Components whose sources and shared tooling are unchanged since their last passing build are skipped (hash in `validation/final/<NAME>.hash`); `--force` rebuilds everything. A full forced run of 70 components takes about 3.5 minutes with `-j 6`.
 
 Each `components/<NAME>/build.py` is self-contained (all 57 rebuilt from source in a clean instance). Where a `body.py` exists, `build.py` is generated from it: `components/_v2/mkv2.sh <NAME>` for the TOP_ effects that have one, older `mk*.sh` scripts for a few others. Otherwise edit `build.py` directly. Names, descriptions and versions live in `components.json`.
