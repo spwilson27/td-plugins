@@ -1,5 +1,5 @@
 // VHS tape pass. in0 = source.
-uniform vec4 uP;   // phase, loop sec, frames/loop
+uniform vec4 uP;   // time in 8 s units (unwrapped), 8, 240 (30 hash frames/s)
 uniform vec4 uA;   // x wobble, y jitter, z chroma bleed px, w chroma shift px
 uniform vec4 uB;   // x tracking, y headswitch, z noise, w softness px
 uniform vec4 uC;   // x tape on (0/1), y amount, z interlace comb, w unused

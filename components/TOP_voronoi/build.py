@@ -1,47 +1,28 @@
-# ---- shared helpers (pasted at top of each build.py; self-contained) ----
 import os, td
 ROOT = os.path.expanduser('~/software/td-plugins')
+NAME = 'TOP_voronoi'
 
-def fresh(name):
-    b = op('/build') or op('/').create(td.containerCOMP, 'build')
-    o = b.op(name)
-    if o: o.destroy()
-    c = b.create(td.baseCOMP, name)
-    return c
-
-def readf(name, fn):
-    return open(os.path.join(ROOT, 'components', name, fn)).read()
-
+def readf(fn): return open(os.path.join(ROOT, 'components', NAME, fn)).read()
 def mkdat(c, nm, text):
     d = c.create(td.textDAT, nm); d.text = text; return d
 
 def pars(c, spec):
-    """spec: {page: [(kind, name, label, default, opts)]} kind: f,i,t,m,p,rgb,wh,xy,s"""
     for page, items in spec.items():
         pg = c.appendCustomPage(page)
         for it in items:
             kind, nm, lab, dflt = it[:4]; o = it[4] if len(it) > 4 else {}
-            if kind == 'f': ps = pg.appendFloat(nm, label=lab)
-            elif kind == 'i': ps = pg.appendInt(nm, label=lab)
-            elif kind == 't': ps = pg.appendToggle(nm, label=lab)
-            elif kind == 'p': ps = pg.appendPulse(nm, label=lab)
-            elif kind == 's': ps = pg.appendStr(nm, label=lab)
-            elif kind == 'm': ps = pg.appendMenu(nm, label=lab)
-            elif kind == 'rgb': ps = pg.appendRGB(nm, label=lab)
-            elif kind == 'wh': ps = pg.appendWH(nm, label=lab)
-            elif kind == 'xy': ps = pg.appendXY(nm, label=lab)
-            p0 = ps[0]
+            ps = {'f': pg.appendFloat, 'i': pg.appendInt, 't': pg.appendToggle, 'p': pg.appendPulse, 'm': pg.appendMenu,
+                  'rgb': pg.appendRGB, 'wh': pg.appendWH}[kind](nm, label=lab)
             if kind == 'm':
-                p0.menuNames = [m[0] for m in o['menu']]; p0.menuLabels = [m[1] for m in o['menu']]
+                ps[0].menuNames = [m[0] for m in o['menu']]; ps[0].menuLabels = [m[1] for m in o['menu']]
+            if kind == 'p': continue
             vals = dflt if isinstance(dflt, (list, tuple)) else [dflt]
             for p, v in zip(ps, vals):
                 p.default = v; p.val = v
                 if 'min' in o: p.min = o['min']; p.normMin = o['min']; p.clampMin = o.get('clamp', False)
                 if 'max' in o: p.max = o['max']; p.normMax = o['max']; p.clampMax = o.get('clamp', False)
-    return c
 
 def uni(g, items):
-    """items: list of (name, [4 values or expr strings]); sets vecN on a GLSL TOP"""
     for i, (nm, vs) in enumerate(items):
         getattr(g.par, 'vec%dname' % i).val = nm
         for ax, v in zip('xyzw', vs):
@@ -49,137 +30,105 @@ def uni(g, items):
             if isinstance(v, str): p.expr = v
             else: p.val = v
 
-def glsl(c, nm, code, items, res=True, fmt=None, mode=None):
-    d = mkdat(c, nm + '_code', code)
+def glsl(c, nm, code, ins, items, fmt, size=None, tops=None):
     g = c.create(td.glslTOP, nm)
-    g.par.pixeldat = d
-    if res:
-        g.par.outputresolution = 'custom'
-        g.par.resolutionw.expr = "parent().par.Resolutionw"
-        g.par.resolutionh.expr = "parent().par.Resolutionh"
-    if fmt: g.par.format = fmt
+    g.par.pixeldat = mkdat(c, nm + '_code', code)
+    for i, s in enumerate(ins): g.inputConnectors[i].connect(s)
+    if tops: g.par.tops = tops
+    if size:
+        g.par.outputresolution = 'custom'; g.par.resolutionw = size[0]; g.par.resolutionh = size[1]
+    g.par.format = fmt
     uni(g, items)
     return g
 
-def ios(c, src):
-    o = c.create(td.nullTOP, 'out1'); o.inputConnectors[0].connect(src); return o
+b = op('/build') or op('/').create(td.baseCOMP, 'build')
+if b.op(NAME): b.op(NAME).destroy()
+c = b.create(td.baseCOMP, NAME)
+P = "parent().par."
 
-def report(c):
-    errs = []
-    for o in [c] + c.findChildren():
-        for s in (o.errors(), o.warnings(), o.scriptErrors()):
-            if s: errs.append((o.path, s[:300]))
-    print('ERRS', errs)
-# ---- end helpers ----
-# ---- loop helpers ----
-P = "parent().par."
-LOOP_PAGE = [
-  ('m','Timesource','Time Source','abstime',{'menu':[('abstime','Abs Time'),('phase','Phase (external)')]}),
-  ('f','Phase','Phase',0.0,{'min':0,'max':1}),
-  ('f','Loopseconds','Loop Seconds',8.0,{'min':0.5,'max':120}),
-  ('f','Loopbeats','Loop Beats (0=use seconds)',0.0,{'min':0,'max':64}),
-  ('f','Bpm','BPM',120.0,{'min':20,'max':300}),
-]
-# loop length in seconds
-LOOPLEN = "(%sLoopbeats*60.0/%sBpm if %sLoopbeats>0 else %sLoopseconds)" % (P,P,P,P)
-# unwrapped loop phase: 1.0 == one full loop. phase mode -> Phase par, else absTime/looplen*Speed
-def PEXPR(speed=True):
-    sp = ("*"+P+"Speed") if speed else ""
-    return "(op('modlib').module.phase() if %sTimesource=='phase' else absTime.seconds%s/%s)" % (P,sp,LOOPLEN)
-def addloop(c, speed=True):
-    pars(c, {'Loop': LOOP_PAGE})
-# ---- end loop helpers ----
-# ---- retroB helpers (batch-1 -> batch-2 retrofit); needs _helpers.py + _loop.py above ----
-PP = "parent().par."
-ISPH = "(1 if %sTimesource=='phase' else 0)" % PP
-PH01 = "(op('modlib').module.phase() if %sTimesource=='phase' else (absTime.seconds/%s) %% 1.0)" % (PP, LOOPLEN)
-def CYC(speed):
-    """integer cycles per loop for a speed value (phase mode)"""
-    return "(0 if %s<=0 else max(1,round(%s)))" % (speed, speed)
-def TEXPR(speed='parent().par.Speed'):
-    """seconds-like time: absTime*speed in abstime mode; 2pi*phase*cycles in phase mode (periodic)"""
-    return "(6.283185307*op('modlib').module.phase()*%s if %sTimesource=='phase' else absTime.seconds*%s)" % (CYC(speed), PP, speed)
-def ORBIT(sp='Orbitspeed', off='Orbitangle'):
-    """angle: abstime = absTime*speed+offset ; phase = offset + 2pi*phase*integer cycles (rate-matched)"""
-    S=PP+sp; O=PP+off
-    return "(%s + 6.283185307*op('modlib').module.phase()*(0 if abs(%s)<1e-4 else (1 if %s>0 else -1)*max(1,round(abs(%s)*%s/6.283185))) if %sTimesource=='phase' else absTime.seconds*%s+%s)" % (O,S,S,S,LOOPLEN,PP,S,O)
-def look_page(c, accent=True):
-    items = [('m','Look','Look','original',{'menu':[('original','Original'),('mono','Mono')]})]
-    if accent: items.append(('f','Accent','Accent (red, Mono)',0.0,{'min':0,'max':1}))
-    pars(c, {'Look': items})
-LOOKI = PP + "Look.menuIndex"
-# ---- end retroB helpers ----
-name = 'GEN_voronoi'
-c = fresh(name)
-P = "parent().par."
 pars(c, {
  'Controls': [
-  ('wh','Resolution','Resolution',[1280,720]),
-  ('t','Active','Active',True),
-  ('m','Mode','Mode',1,{'menu':[('0','Flat cells'),('1','Edge glow'),('2','Cracked glass'),('3','Stained glass')]}),
-  ('i','Seeds','Seeds',40,{'min':2,'max':128,'clamp':True}),
-  ('f','Speed','Speed',0.6,{'min':0,'max':4}),
-  ('f','Motion','Motion',1.0,{'min':0,'max':4}),
-  ('f','Jitter','Jitter (grid to random)',1.0,{'min':0,'max':1,'clamp':True}),
-  ('f','Borderwidth','Border Width (px)',3.0,{'min':0.5,'max':30}),
-  ('f','Glow','Glow',1.0,{'min':0,'max':3}),
-  ('t','Delaunay','Delaunay Overlay',False),
-  ('f','Linewidth','Delaunay Line Width (px)',1.5,{'min':0.5,'max':8}),
-  ('m','Palette','Palette',3,{'menu':[('0','Rainbow'),('1','Sunset'),('2','Ocean'),('3','Neon'),('4','Mono')]}),
-  ('f','Hue','Hue Shift',0.0,{'min':0,'max':1}),
-  ('i','Seed','Random Seed',1,{'min':0,'max':1000}),
- ]})
-addloop(c); look_page(c)
-c.create(td.inTOP,'in1')
-nz = c.create(td.noiseTOP,'default_src')
-nz.par.outputresolution='custom'; nz.par.resolutionw=512; nz.par.resolutionh=512
-nz.par.mono=False; nz.par.period=0.6; nz.par.amp=0.7; nz.par.offset=0.5; nz.par.harmon=2
-nz.par.tz.expr="absTime.seconds*0.1"
-nz4 = c.create(td.noiseTOP,'default_src_loop')   # phase-periodic: 4D noise on a circle
-nz4.par.outputresolution='custom'; nz4.par.resolutionw=512; nz4.par.resolutionh=512
-nz4.par.type='perlin4d'; nz4.par.mono=False; nz4.par.period=0.6; nz4.par.amp=0.7; nz4.par.offset=0.5; nz4.par.harmon=2
-nz4.par.tz.expr="0.35*math.cos(6.283185307*%s)" % PH01
-nz4.par.t4d.expr="0.35*math.sin(6.283185307*%s)" % PH01
-nsw = c.create(td.switchTOP,'noise_mode'); nsw.inputConnectors[0].connect(nz); nsw.inputConnectors[1].connect(nz4)
-nsw.par.index.expr = ISPH
-sw = c.create(td.switchTOP,'src_switch')
-sw.inputConnectors[0].connect(nsw); sw.inputConnectors[1].connect(c.op('in1'))
-sw.par.index.expr="1 if parent().inputConnectors[0].connections else 0"
-common = readf(name,'common.glsl')
-tm = TEXPR(P+"Speed*"+P+"Active")
-U = [('uA',[tm, P+"Seeds", P+"Mode", "1 if "+P+"Delaunay else 0"]),
-     ('uB',[P+"Borderwidth", P+"Jitter", P+"Motion*(1+op('modlib').module.m('band1'))", P+"Seed"]),
-     ('uC',[P+"Palette", P+"Hue", P+"Glow*(1+op('modlib').module.m('beat'))", P+"Linewidth"]),
-     ('uD',[ISPH, LOOKI, P+"Accent", 0])]
-adj = glsl(c,'adj', common+readf(name,'adj.glsl'), [('uA',[tm,P+"Seeds",0,P+"Resolutionw/"+P+"Resolutionh"]),U[1],U[2],U[3]], res=False, fmt='rgba16float')
-adj.par.outputresolution='custom'; adj.par.resolutionw=128; adj.par.resolutionh=128
-main = glsl(c,'vor', common+readf(name,'main.glsl'), U, fmt='rgba8fixed')
-main.inputConnectors[0].connect(sw); main.inputConnectors[1].connect(adj)
-ios(c, main)
-MODLIB = '''# modulation helpers: m(name) reads a channel (band1-4, beat, phase) of the optional In CHOP, else default
-def _ins():
-    return [o for o in parent().children if o.OPType == 'inCHOP']
+  ('f', 'Mix', 'Mix', 1.0, {'min': 0, 'max': 1, 'clamp': True}),
+  ('t', 'Bypass', 'Bypass', False),
+  ('m', 'Style', 'Style', 'cells', {'menu': [('cells', 'Cells'), ('edges', 'Edges'), ('cracked', 'Cracked glass'), ('stained', 'Stained glass')]}),
+  ('i', 'Seeds', 'Seeds', 70, {'min': 2, 'max': 128, 'clamp': True}),
+  ('f', 'Jitter', 'Jitter (grid to random)', 1.0, {'min': 0, 'max': 1, 'clamp': True}),
+  ('f', 'Speed', 'Drift Speed', 0.3, {'min': 0, 'max': 4}),
+  ('f', 'Motion', 'Drift Amount', 1.0, {'min': 0, 'max': 4}),
+  ('i', 'Seed', 'Random Seed', 1, {'min': 0, 'max': 1000}),
+ ],
+ 'Cells': [
+  ('f', 'Borderwidth', 'Border Width (px)', 3.0, {'min': 0.5, 'max': 30}),
+  ('f', 'Glow', 'Edge Glow', 1.0, {'min': 0, 'max': 3}),
+  ('rgb', 'Edgecolor', 'Edge Colour', [1.0, 0.95, 0.85]),
+  ('f', 'Edgetint', 'Edge Tint from Input', 0.7, {'min': 0, 'max': 1, 'clamp': True}),
+  ('f', 'Displace', 'Shard Displacement', 0.25, {'min': 0, 'max': 1}),
+  ('t', 'Delaunay', 'Delaunay Overlay', False),
+  ('f', 'Linewidth', 'Delaunay Line Width (px)', 1.5, {'min': 0.5, 'max': 8}),
+ ],
+ 'Density': [
+  ('m', 'Densitymode', 'Density Follows', 'uniform', {'menu': [('uniform', 'Uniform'), ('bright', 'Bright areas'), ('dark', 'Dark areas'), ('edges', 'Edges')]}),
+  ('f', 'Densityamount', 'Density Amount', 0.6, {'min': 0, 'max': 1, 'clamp': True}),
+ ],
+ 'Output': [
+  ('m', 'Resolutionmode', 'Resolution Mode', 'input', {'menu': [('input', 'Input'), ('custom', 'Custom')]}),
+  ('wh', 'Resolution', 'Resolution', [1280, 720], {'min': 16, 'max': 8192}),
+ ],
+ 'Look': [
+  ('m', 'Look', 'Look', 'original', {'menu': [('original', 'Original'), ('mono', 'Mono')]}),
+  ('f', 'Accent', 'Accent (red, Mono)', 0.0, {'min': 0, 'max': 1, 'clamp': True}),
+ ],
+})
+
+# ---- input + gated demo ----
+i1 = c.create(td.inTOP, 'in1')
+demo = c.create(td.baseCOMP, 'demo')
+dg = glsl(demo, 'defsrc', readf('src.glsl'), [], [('uP', ['absTime.seconds', 0, 0, 0])], 'rgba16float', size=(1280, 720))
+do = demo.create(td.outTOP, 'demo_out'); do.inputConnectors[0].connect(dg)
+sw = c.create(td.switchTOP, 'src_switch')
+sw.inputConnectors[0].connect(demo.outputConnectors[0]); sw.inputConnectors[1].connect(i1)
+sw.par.index.expr = "(1 if len(parent().inputConnectors[0].connections) else 0) + 0*absTime.frame"
+rs = c.create(td.resolutionTOP, 'srcres'); rs.inputConnectors[0].connect(sw)
+rs.par.outputresolution.expr = "'custom' if parent().par.Resolutionmode == 'custom' else 'useinput'"
+rs.par.resolutionw.expr = P + 'Resolutionw'; rs.par.resolutionh.expr = P + 'Resolutionh'
+rs.par.fillmode = 'fill'
+rs.par.format = 'rgba16float'
+
+# ---- modulation ----
+MODLIB = '''# m(name): channel of the optional modulation In CHOP (band1-4, beat); default when absent
 def m(n, d=0.0):
-    i = _ins()
+    i = [o for o in parent().children if o.OPType == 'inCHOP']
     if not i: return d
     ch = i[0][n]
     return ch.eval() if ch is not None else d
-def clk():
-    # phase 0..1 from the Clock CHOP's 'phase' channel (None if no Clock set / channel missing)
-    c = parent().par.Clock.eval()
-    if c is None: return None
-    ch = c['phase']
-    return ch.eval() if ch is not None else None
-def phase():
-    c = clk()
-    return (c if c is not None else parent().par.Phase.eval()) % 1.0
 '''
+c.create(td.inCHOP, 'in2')
+mk = c.create(td.textDAT, 'modlib'); mk.text = MODLIB
+M = lambda n: "op('modlib').module.m('%s')" % n
 
-lp = [p for p in c.customPages if p.name == 'Loop'][0]
-lp.appendCHOP('Clock', label='Clock CHOP (phase)')
-nin = len([o for o in c.children if o.OPType in ('inTOP', 'inPOP', 'inSOP', 'inCHOP', 'inDAT')])
-c.create(td.inCHOP, 'in%d' % (nin + 1))
-c.create(td.textDAT, 'modlib').text = MODLIB
-c.op('out1').comment = 'render'
-c.save(os.path.expanduser('~/software/td-plugins/tox/_raw/%s.tox' % name))
-report(c); print('saved')
+# ---- passes ----
+cnt = P + 'Seeds'
+seeds = glsl(c, 'seeds', readf('seeds.glsl'), [rs], [
+    ('uA', ['absTime.seconds*' + P + 'Speed', cnt, P + 'Jitter', P + 'Seed']),
+    ('uB', [P + 'Motion*(1+2*' + M('band2') + ')', P + 'Densitymode.menuIndex', P + 'Densityamount', 0])],
+    'rgba32float', size=(128, 2))
+cells = glsl(c, 'cells', readf('cells.glsl'), [rs, seeds], [('uA', [cnt, 0, 0, 0])], 'rgba32float')
+adj = glsl(c, 'adj', readf('adj.glsl'), [seeds], [('uA', [cnt, 0, 0, 0])], 'rgba16float', size=(128, 128))
+style = glsl(c, 'style', readf('style.glsl'), [rs, seeds, cells], [
+    ('uA', [P + 'Style.menuIndex', P + 'Borderwidth', P + 'Glow*(1+2*' + M('band1') + ')', P + 'Displace*(1+2*' + M('band3') + ')']),
+    ('uB', ['1 if ' + P + 'Delaunay else 0', P + 'Linewidth', P + 'Mix', M('beat')]),
+    ('uC', [P + 'Look.menuIndex', P + 'Accent', cnt, P + 'Edgetint']),
+    ('uD', [P + 'Edgecolorr', P + 'Edgecolorg', P + 'Edgecolorb', 0])],
+    'rgba16float', tops='adj')
+mp = glsl(c, 'map', readf('map.glsl'), [cells, seeds], [('uA', [cnt, 0, 0, 0])], 'rgba16float')
+
+byp = c.create(td.switchTOP, 'bypass'); byp.inputConnectors[0].connect(style); byp.inputConnectors[1].connect(rs)
+byp.par.index.expr = '1 if ' + P + 'Bypass else 0'
+o1 = c.create(td.nullTOP, 'out1'); o1.inputConnectors[0].connect(byp); o1.comment = 'stylised image'
+o2 = c.create(td.nullTOP, 'out2'); o2.inputConnectors[0].connect(mp); o2.comment = 'cell id + edge map'
+
+c.save(os.path.join(ROOT, 'tox/_raw/%s.tox' % NAME))
+for o in [c] + c.findChildren():
+    for s in (o.errors(), o.warnings(), o.scriptErrors()):
+        if s: print('ERR', o.path, s[:300])
+print('saved')

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Validate a component tox in a scratch TD:  validate.py <instance> <name> [seconds=3]
+"""Validate a component tox in a scratch TD:  validate.py <instance> <name> [frames=150]
+Waits are in cooked frames, not seconds (exact under load, no over-waiting when idle).
 Loads tox/<name>.tox into /validate/<name>, lets it run, checks errors recursively,
 checks custom params + out1 TOP, saves validation/<name>.png and prints a JSON report."""
 import json, subprocess, sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import tdctl  # noqa
+from tdwait import wait_frames
 from td_mcp.client import call, load_connection
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -18,7 +20,7 @@ def run(conn, code):
 
 def main():
     inst, name = sys.argv[1], sys.argv[2]
-    secs = float(sys.argv[3]) if len(sys.argv) > 3 else 3
+    frames = int(float(sys.argv[3])) if len(sys.argv) > 3 else 150   # initial run, in cooked frames
     conn = load_connection(tdctl.d(inst) / "connection.json")
     fam = name.split("_")[0]
     tox = ROOT / "tox" / fam / f"{name}.tox"
@@ -46,7 +48,7 @@ d.text = '''def onFrameEnd(frame):
 d.par.frameend = 1
 d.par.active = 1
 """)
-    time.sleep(secs)
+    wait_frames(conn, frames)
     png = ROOT / "validation" / f"{name}.png"
     r = run(conn, f"""
 import json, td
@@ -93,7 +95,7 @@ print(json.dumps(info))
     rep = json.loads(r["stdout"].strip().splitlines()[-1])
     conv_code = f"c = op('/validate/{name}')\n" + (ROOT / "tools" / "conv_check_td.py").read_text()
     rep["conventions"] = json.loads(run(conn, conv_code)["stdout"].strip().splitlines()[-1])
-    time.sleep(0.7)
+    wait_frames(conn, 6)
     r2 = run(conn, f"""
 c = op('/validate/{name}')
 _tops = [c.op('preview')] if (c.op('preview') is not None and c.op('preview').isTOP) else sorted([o for o in c.findChildren(depth=1) if o.isTOP and o.name.startswith('out')], key=lambda o: o.name)
@@ -106,8 +108,8 @@ print(float(abs(a[::4, ::4, :3] - b).mean()) if (a is not None and b is not None
     rep["frame_diff"] = round(m2, 5)
     rep["animating"] = m2 > 1e-4
     # ---- phase 2: supported configuration = every input connected to a test source ----
-    rep["connected"] = connected_phase(conn, name, secs, only_primary=True)
-    rep["connected_all"] = connected_phase(conn, name, secs, only_primary=False)
+    rep["connected"] = connected_phase(conn, name, only_primary=True)
+    rep["connected_all"] = connected_phase(conn, name, only_primary=False)
     rep["png"] = str(png) if png.exists() else None
     util = name.startswith("UTIL_")   # utilities output DATs: no image/animation requirement
     cps = (rep["connected"], rep["connected_all"])
@@ -120,7 +122,7 @@ print(float(abs(a[::4, ::4, :3] - b).mean()) if (a is not None and b is not None
 FIXTURE_DAT = ROOT / "tools" / "fixtures" / "SDF_input.txt"   # what an SDF_ wire carries (written by the SDF_ components)
 
 
-def connected_phase(conn, name, secs, only_primary=False):
+def connected_phase(conn, name, only_primary=False, settle=60, compare=30):
     """Connect a test source to every In op, run, and report errors/warnings plus whether the
     component's `demo` COMP (preview-only sources) still cooks. Inputs are disconnected afterwards."""
     sdf = FIXTURE_DAT.read_text() if FIXTURE_DAT.exists() else ""
@@ -152,7 +154,7 @@ for i, o in enumerate(ins[:1] if {only_primary} else ins):
 print(json.dumps(made))
 """)
     made = json.loads(r["stdout"].strip().splitlines()[-1])
-    time.sleep(max(1.0, secs / 2))
+    wait_frames(conn, settle)
     # cook counts of preview-only demo ops, sampled twice
     snap = f"""
 import json
@@ -160,7 +162,7 @@ c = op('/validate/{name}'); d = c.op('demo')
 print(json.dumps({{o.path: o.totalCooks for o in d.findChildren()}} if d else {{}}))
 """
     a = json.loads(run(conn, snap)["stdout"].strip().splitlines()[-1])
-    time.sleep(1.0)
+    wait_frames(conn, compare)
     b = json.loads(run(conn, snap)["stdout"].strip().splitlines()[-1])
     cooking = sorted(p for p in b if b[p] != a.get(p))
     r = run(conn, f"""

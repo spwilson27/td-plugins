@@ -13,9 +13,7 @@ Luminance-driven false-colour maps. `in1` TOP image (default source if unconnect
 | Crosshair, Target, Hudcolor | reticle, ticks, corner brackets, level meter reading the value at Target |
 | Legend | gradient scale bar on right |
 
-**Loop page** (all four): `Timesource` (abstime/phase), `Phase` (0-1), `Loopbeats` (default 8) with `Bpm` (120), or `Loopseconds` (>0 overrides beats). Internally one phase value P=fract(time/loop) (or `Phase`) drives everything.
 
-**Seamless loop:** the effect is memoryless; grain is hashed from the in-loop frame index (periodic). Looping depends on the input.
 
 
 ## v2 interface
@@ -23,9 +21,12 @@ Luminance-driven false-colour maps. `in1` TOP image (default source if unconnect
 |---|---|---|
 | in1 | In TOP | image (default animated source if unconnected) |
 | in2 | In TOP | optional depth / driver (Driver = In2) |
-| in3 | In CHOP | optional modulation (band1..band4, beat, phase) |
+| in3 | In CHOP | optional modulation (band1..band4, beat) |
 | out1 | Out TOP | result |
 
-New common parameters: `Mix` (dry/wet vs in1), `Bypass` (passes in1 straight through), `Resolutionmode` (`input` follows in1 / default source, `custom` uses `Resolutionw/h`), `Clock` (Loop page: CHOP whose `phase` channel drives the loop when Timesource=phase), `Modamount` (scales the modulation input).
+New common parameters: `Mix` (dry/wet vs in1), `Bypass` (passes in1 straight through), `Resolutionmode` (`input` follows in1 / default source, `custom` uses `Resolutionw/h`), `Modamount` (scales the modulation input).
 
 Modulation: `band1` adds `Modamount*band1` to `Gain`. Mixoriginal remains the false-colour/original blend; Mix is the overall dry/wet.
+
+## Demo source
+The built-in preview source lives in a `demo` Base COMP behind a Switch: it is selected only while `in1` is unconnected, so with an input connected it does not cook. There is no Loop page; animation uses absolute time and only exists to make the unconnected preview move.

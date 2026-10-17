@@ -5,7 +5,7 @@ src = ex.create(moviefileinTOP, 'banana'); src.par.file.expr = sample_expr('Map/
 g = instance(ex, 'TOP_pixel_stretch'); g.inputConnectors[0].connect(src)
 g.par.Threshold = 0.45; g.par.Length = 0.9; g.par.Revert = 0.3
 out(ex, 1, g)
-ex = example(s, 2, 'Sideways glitch on a movie', 'Count.mov smeared to the right with a wide Bandwidth for chunky stripes and strong Noise.\nInvert smears the dark parts instead; Animate wobbles the threshold over the loop.')
+ex = example(s, 2, 'Sideways glitch on a movie', 'Count.mov smeared to the right with a wide Bandwidth for chunky stripes and strong Noise.\nInvert smears the dark parts instead; Animate wobbles the threshold over time.')
 src = ex.create(moviefileinTOP, 'count'); src.par.file.expr = sample_expr('Map/Count.mov')
 g = instance(ex, 'TOP_pixel_stretch'); g.inputConnectors[0].connect(src)
 g.par.Direction = 'right'; g.par.Bandwidth = 12; g.par.Noise = 0.8; g.par.Length = 0.7; g.par.Threshold = 0.3

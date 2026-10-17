@@ -93,9 +93,9 @@ def lfo_band(ex, name='lfo', freq=0.4, col=None, row=2, chan='band1'):
 
 def beat_mod(ex, name='beat', period=4, col=None, row=2):
     b = ex.create(td.beatCHOP, name, col=col, row=row)
-    b.par.ramp = True; b.par.pulse = True; b.par.period = period
+    b.par.ramp = False; b.par.pulse = True; b.par.period = period
     rn = ex.create(td.renameCHOP, name + '_rename', col=None if col is None else col + 1, row=row)
-    rn.par.renamefrom = 'ramp pulse'; rn.par.renameto = 'phase beat'; rn.inputConnectors[0].connect(b)
+    rn.par.renamefrom = 'pulse'; rn.par.renameto = 'beat'; rn.inputConnectors[0].connect(b)
     return rn
 
 def merge_mod(ex, *srcs, col=None, row=2):
@@ -139,7 +139,7 @@ out(ex, 2, g)
 ex = example(s, 3, 'Custom matcap from an image + audio-style modulation',
   'Matcap=custom takes in1: here a Movie File In (Banana.tif) is used as the matcap. Any image with the shaded sphere centred works (sculpting libraries).\n'
   'An LFO renamed band2 into the modulation input (in2) spins the matcap (Rotate += band2 * 1.5 rad), band1 adds brightness.\n'
-  'Spinmatcap makes the matcap turn by N full rotations per loop without any CHOP.')
+  'Spinmatcap makes the matcap turn by N full rotations per preview cycle without any CHOP.')
 mv = ex.create(td.moviefileinTOP, 'banana'); mv.par.file = sample('Map/Banana.tif')
 lf = lfo_band(ex, 'lfo', 0.25, col=None, row=2, chan='band2')
 p = inst(ex, N, col=0, row=0, Matcap='custom')

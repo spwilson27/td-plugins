@@ -8,6 +8,7 @@ import json, sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import tdctl  # noqa
+from tdwait import wait_frames
 from td_mcp.client import call, load_connection
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -19,7 +20,7 @@ def run(conn, code):
 
 def main():
     inst, name = sys.argv[1], sys.argv[2]
-    secs = float(sys.argv[3]) if len(sys.argv) > 3 else 4
+    frames = int(float(sys.argv[3])) if len(sys.argv) > 3 else 150   # cooked frames before capture
     conn = load_connection(tdctl.d(inst) / "connection.json")
     tox = ROOT / "snippets" / f"{name}.tox"
     assert tox.exists(), tox
@@ -38,7 +39,7 @@ d.text = '''def onFrameEnd(frame):
 d.par.frameend = 1
 d.par.active = 1
 """)
-    time.sleep(secs)
+    wait_frames(conn, frames)
     outdir = ROOT / "validation" / "snippets"; outdir.mkdir(parents=True, exist_ok=True)
     r = run(conn, f"""
 import json, td

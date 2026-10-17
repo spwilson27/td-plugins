@@ -21,6 +21,6 @@ Post effect: depth of field with polygon/disc bokeh (gather, golden-angle sample
 | | Resolutionmode (input/custom), Resolution | follow in1 or use Resolutionw/h |
 | Motion | Mbactive, Shutter, Velscale, Velsamples, Reset | accumulation 0..0.97, velocity blur |
 | Output | Showdepth, Showcoc | debug: prepared depth / focus map (green in focus, red blurred) |
-| Loop | Timesource (abstime/phase), Phase, Clock, Loopseconds, Loopbeats, Bpm | drives the default scene only; Clock CHOP's `phase` channel is used when Timesource = phase |
 
-Loop: the default scene is periodic in loop phase. The frame accumulation is a recursive filter so a looping input converges to a periodic output after a short settling time (Reset clears it).
+## Demo source
+The built-in preview source lives in a `demo` Base COMP behind a Switch: it is selected only while `in1` is unconnected, so with an input connected it does not cook. There is no Loop page; animation uses absolute time and only exists to make the unconnected preview move.

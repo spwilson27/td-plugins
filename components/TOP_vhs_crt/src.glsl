@@ -1,5 +1,5 @@
-// Periodic animated default source (loops at phase 0==1). Dark, bone-white, red accent. HDR-ish cores.
-uniform vec4 uP;   // x phase(0-1), y loop seconds, z frames/loop
+// Animated default source (repeats every 8 s). Dark, bone-white, red accent. HDR-ish cores.
+uniform vec4 uP;   // x time in 8 s units, y 8, z 240
 out vec4 fragColor;
 const float TAU=6.2831853;
 float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }

@@ -1,40 +1,26 @@
-# GEN_fluid_2d
+# TOP_fluid
 
-Stable-fluids (Jos Stam) Eulerian solver on the GPU: semi-Lagrangian advection, divergence, warm-started Jacobi pressure solve (`Iterations` passes per frame), gradient subtraction, vorticity confinement and dissipation. All state is rgba32float in feedback loops (velocity, pressure, dye). Solid walls at the borders. Velocity is in cells per step.
+GPU stable-fluids (Jos Stam) solver that treats the input image as dye and smears it: semi-Lagrangian advection, divergence, warm-started Jacobi pressure solve, gradient subtraction, vorticity confinement and dissipation. State (velocity, pressure, dye) is rgba32float in feedback loops. Solid walls at the borders. Velocity is in cells per step.
 
-**Inputs**: `in1` TOP (optional). Image colour is injected as dye (`Input Density`) and its luminance gradient (rotated 90 degrees) drives velocity along edges (`Input Velocity`). With nothing connected, only the internal animated emitters are used.
-**Outputs**: `out1` coloured dye (tone-mapped), `out2` velocity (R,G, 32-bit float).
+**Inputs**
+- `in1` image: advected as dye. `Dyesource` = `inject` blends it in continuously at `Injectrate` (the picture keeps re-forming); `seed` loads it only at start / on `Reset`, then the fluid smears it away. Its luminance edges also push the flow (`Edgeforce`).
+- `in2` velocity / force (optional TOP): its R,G channels are added to the velocity every step, scaled by `Forcein`. Signed values (centre 0) are expected; for an unsigned source such as a Noise TOP, subtract 0.5 first. Animated sources give continuous motion.
+- `in3` modulation CHOP (optional, last): `band1`-`band4`, `beat`. `beat` kicks the stir force x(1+3b); `band1` raises vorticity x(1+2b).
+
+**Outputs**: `out1` smeared image (Mix / Bypass applied), `out2` velocity (R,G, 32-bit float), `out3` dye field (32-bit float).
 
 | Page | Param | Notes |
 |---|---|---|
-| Controls | Play, Reset, Resolution | Reset clears velocity, pressure, dye |
-| | Speed | time step multiplier |
-| | Iterations | Jacobi pressure iterations/frame |
-| | Vorticity | confinement strength |
-| | Veldissipation / Dyedissipation | per-frame decay |
-| Emitter | Emitters (0-6), Splatsize, Force, Density, Emitterspeed, Huespeed | animated Lissajous splat emitters pushing velocity and injecting hue-cycling dye |
-| Input | Inputdensity, Inputvelocity | in1 coupling |
-| Render | Exposure, Saturation, Background | colour output |
+| Controls | Play, Reset | Reset clears velocity and pressure and re-seeds dye from in1 |
+| | Mix, Bypass | dry/wet against in1; bypass passes in1 through |
+| | Resolutionmode, Resolutionw/h | `input` follows in1 (or the demo), `custom` uses Resolution |
+| | Dyesource, Injectrate | inject continuously or seed only |
+| | Speed, Iterations | time step multiplier, Jacobi iterations per frame |
+| | Vorticity, Veldissipation, Dyedissipation | confinement and per-frame decay |
+| Forces | Forcein, Edgeforce | in2 coupling, image-edge coupling |
+| | Emitters, Splatsize, Force, Emitterspeed | internal free-running Lissajous stir splats (set Emitters 0 to be driven only by in2 / edges) |
 
-Tips: the component keeps itself cooking via an Execute DAT (`keepalive`). Force and splat scale with Resolution height. Lower Iterations (8-12) for speed.
+## Fluid text
+This component also replaces the old text-fluid generator: text is just a Text TOP fed into `in1`. Animate the text (Transform TOP / expression) or drive in2 with a moving noise or LFO-driven force field and the lettering swirls and smears. See snippet 2.
 
-## Loop page and Look (retrofit)
-
-**Look** (Controls): `Original` (default, unchanged) or `Mono` (Rendah style: black background, bone-white/grey; implemented as a final `look` GLSL TOP in front of `out1`, no duplicated network). `Accent` adds a red accent in Mono; `Monogain` sets the mono brightness.
-
-**Loop** page: `Timesource` (`abstime` = free-running, loops every `Loopseconds`/`Loopbeats` at `Bpm`; `phase` = driven by the `Phase` par 0-1, e.g. from a timeline or LFO). `Loopreset` toggle pulses `Reset` each time the phase wraps.
-
-**Honest note on looping:** this is a stateful simulation, so the output is NOT a bit-exact loop. Everything that *forces* the sim is a periodic function of Phase (so the forcing repeats exactly), and with `Loopreset` on the sim restarts from its initial state at each wrap, so a recorded loop restarts identically. Without `Loopreset` the state keeps evolving and only the forcing is periodic. Periodic forcing: emitters follow Lissajous paths with integer cycles per loop (cycles = round(`Emitterspeed`), so 1 at default), dye hue cycles an integer number of times per loop (round(`Huespeed` x loop length), min 1 if Huespeed>0).
-
-## v2 update
-
-Renamed from `fluid_2d` to `GEN_fluid_2d` (tox at `tox/GEN/GEN_fluid_2d.tox`; no per-frame keepalive: outputs are pulled by downstream ops).
-
-**Inputs**: in1 (TOP, optional dye/force source), in2 (CHOP, optional modulation). The modulation In CHOP is always the last input and reads channels `band1`-`band4`, `beat`, `phase`; missing channels are ignored. Used here: beat: emitter Force x(1+3b), band1: dye amount x(1+2b).
-
-| Output | Label |
-|---|---|
-| out1 | dye |
-| out2 | velocity |
-
-**Loop page**: new `Clock` CHOP parameter. With `Timesource` = `phase` the phase is read from the `phase` channel of that CHOP (instead of `Phase`). Snippets: `snippets/GEN_fluid_2d.tox` (About > Snippets).
+With nothing connected, an internal demo (colour noise plus the word FLUID, in the gated `demo` COMP) is smeared by the stir emitters. Lower `Iterations` (8-12) for speed. Snippets: About > Snippets.

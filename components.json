@@ -164,8 +164,8 @@
   "old": "GEN_fluid_2d",
   "name": "TOP_fluid",
   "family": "TOP",
-  "description": "2D stable fluid that advects and smears the input image; outputs velocity and dye fields",
-  "version": "2.0.0"
+  "description": "2D stable fluid that advects and smears the input image as dye (inject or seed), with an optional velocity/force TOP; outputs smeared image, velocity and dye fields. Feed a Text TOP for fluid text.",
+  "version": "1.0.0"
  },
  {
   "old": "GEN_boids",
@@ -185,22 +185,22 @@
   "old": "GEN_cellular_automata",
   "name": "TOP_cellular_automata",
   "family": "TOP",
-  "description": "Cellular automata seeded and fed by the input image; outputs the cell state",
-  "version": "2.0.0"
+  "description": "Cellular automaton driven by an image: bright pixels seed (and keep injecting) cells; cells take the input colours. Life, Brians Brain, Wireworld, Larger than Life, custom B/S. out2 = raw state.",
+  "version": "1.0.0"
  },
  {
   "old": "GEN_verlet_cloth",
   "name": "POP_cloth",
   "family": "POP",
   "description": "Verlet cloth simulation of the input mesh, pinned by group/attribute, wind, sphere collider",
-  "version": "2.0.0"
+  "version": "1.0.0"
  },
  {
   "old": "GEN_strange_attractors",
   "name": "POP_attractor_advect",
   "family": "POP",
-  "description": "Advect the input points along a strange-attractor field (Lorenz, Aizawa, Thomas...)",
-  "version": "2.0.0"
+  "description": "Advect the input points along a strange-attractor field (Lorenz, Aizawa, Thomas, Halvorsen, Dadras), optionally with trails",
+  "version": "3.0.0"
  },
  {
   "old": "lsystem",
@@ -213,15 +213,15 @@
   "old": "GEN_voronoi",
   "name": "TOP_voronoi",
   "family": "TOP",
-  "description": "Voronoi cells / cracked & stained glass coloured by the input image; outputs cell ids and edges",
-  "version": "2.0.0"
+  "description": "Voronoi cells / cracked & stained glass coloured by sampling the input image at each cell site; density can follow luminance or edges. out2 = cell id colour with edge distance in alpha",
+  "version": "1.0.0"
  },
  {
   "old": "GEN_flow_field_lines",
   "name": "TOP_flow_field_lines",
   "family": "TOP",
-  "description": "Long-exposure strokes flowing along a field derived from the input image",
-  "version": "2.0.0"
+  "description": "Long-exposure strokes advected along a field derived from the input image (edge contours, gradient, luminance or hue angle), coloured by the image. out2 = the field (direction in RG, strength in B).",
+  "version": "3.0.0"
  },
  {
   "old": "GEN_terrain_flyover",
@@ -389,6 +389,104 @@
   "name": "TOP_normal_shade",
   "family": "TOP",
   "description": "Shade a normal map with a matcap or key/rim lights",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_box",
+  "family": "SDF",
+  "description": "SDF primitive: rounded box (size, roundness, colour).",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_combine",
+  "family": "SDF",
+  "description": "SDF operation: union, subtract, intersect or morph two SDFs with smooth blending.",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_deform",
+  "family": "SDF",
+  "description": "SDF operation: twist, bend, noise-displace, round or hollow out (onion) an SDF.",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_fractal",
+  "family": "SDF",
+  "description": "SDF primitive: Mandelbulb, Menger sponge or kaleidoscopic IFS fractal distance estimator.",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_gyroid",
+  "family": "SDF",
+  "description": "SDF primitive: gyroid / Schwarz-P / diamond triply periodic minimal surface, optionally bounded by a sphere.",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_plane",
+  "family": "SDF",
+  "description": "SDF primitive: infinite plane with optional checker.",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_render",
+  "family": "SDF",
+  "description": "SDF renderer: raymarches an SDF wire into color, linear depth, view normals and world position, using a Camera COMP.",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_repeat",
+  "family": "SDF",
+  "description": "SDF operation: repeat an SDF on an infinite or finite grid, or around an axis (polar).",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_sphere",
+  "family": "SDF",
+  "description": "SDF primitive: sphere (radius, colour). Wire its SDF output into other SDF_ nodes.",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_to_MAT",
+  "family": "SDF",
+  "description": "SDF converter (lossy): a GLSL MAT that raymarches an SDF wire inside proxy box geometry and writes depth, so it composites with Render TOP scenes. Use Apply To like the MAT_ components.",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_to_POP",
+  "family": "SDF",
+  "description": "SDF converter (lossy): polygonize an SDF wire into a mesh POP over chosen bounds and resolution (marching cubes).",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_to_TOP",
+  "family": "SDF",
+  "description": "SDF converter (lossy): bake an SDF wire into a 3D texture TOP (R = distance, GBA = color) over chosen bounds and resolution.",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_torus",
+  "family": "SDF",
+  "description": "SDF primitive: torus (major/minor radius, axis, colour).",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "SDF_transform",
+  "family": "SDF",
+  "description": "SDF operation: translate, rotate and uniformly scale an SDF.",
   "version": "1.0.0"
  }
 ]

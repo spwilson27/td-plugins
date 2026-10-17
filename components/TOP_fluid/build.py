@@ -1,7 +1,10 @@
 import os, td
 
-# RETRO BEGIN (v2: Loop page + Clock CHOP + optional modulation In CHOP + Look menu)
-MODLIB = '''# modulation helpers: m(name) reads a channel (band1-4, beat, phase) of the optional In CHOP, else default
+NAME = 'TOP_fluid'
+HERE = os.path.expanduser('~/software/td-plugins/components/' + NAME)
+def rd(f): return open(os.path.join(HERE, f)).read()
+
+MODLIB = '''# modulation helpers: m(name) reads a channel (band1-4, beat) of the optional In CHOP, else default
 def _ins():
     return [o for o in parent().children if o.OPType == 'inCHOP']
 def m(n, d=0.0):
@@ -9,80 +12,8 @@ def m(n, d=0.0):
     if not i: return d
     ch = i[0][n]
     return ch.eval() if ch is not None else d
-def clk():
-    # phase 0..1 from the Clock CHOP's 'phase' channel (None if no Clock set / channel missing)
-    c = parent().par.Clock.eval()
-    if c is None: return None
-    ch = c['phase']
-    return ch.eval() if ch is not None else None
-def phase():
-    c = clk()
-    return (c if c is not None else parent().par.Phase.eval()) % 1.0
 '''
-LOOKGLSL = open(os.path.expanduser('~/software/td-plugins/components/_retro/look.glsl')).read()
-def retro(c, accmode=0, gain=1.0, out='out1', rst='Reset', looksrc=None):
-    import math
-    ctl = [p for p in c.customPages if p.name == 'Controls'][0]
-    m = ctl.appendMenu('Look', label='Look')[0]
-    m.menuNames = ['original', 'mono']; m.menuLabels = ['Original', 'Mono (Rendah)']
-    m.default = 'original'; m.val = 'original'
-    t = ctl.appendToggle('Accent', label='Red Accent (Mono)')[0]; t.default = 0; t.val = 0
-    g = ctl.appendFloat('Monogain', label='Mono Gain')[0]; g.default = g.val = gain; g.min = 0.05; g.max = 8; g.normMin = 0.2; g.normMax = 4
-    pg = c.appendCustomPage('Loop')
-    p = pg.appendMenu('Timesource')[0]
-    p.menuNames = ['abstime', 'phase']; p.menuLabels = ['Absolute Time', 'Phase (external)']; p.default = 'abstime'; p.val = 'abstime'
-    p = pg.appendFloat('Phase')[0]; p.min = 0; p.max = 1; p.normMin = 0; p.normMax = 1; p.default = 0; p.val = 0
-    pg.appendCHOP('Clock', label='Clock CHOP (phase)')
-    p = pg.appendFloat('Loopseconds')[0]; p.min = 0.5; p.max = 120; p.normMin = 1; p.normMax = 60; p.clampMin = True; p.default = 8.0; p.val = 8.0
-    p = pg.appendInt('Loopbeats')[0]; p.min = 0; p.max = 256; p.normMin = 0; p.normMax = 64; p.clampMin = True; p.default = 0; p.val = 0
-    p = pg.appendFloat('Bpm')[0]; p.min = 20; p.max = 300; p.normMin = 60; p.normMax = 200; p.default = 120; p.val = 120
-    p = pg.appendToggle('Loopreset')[0]; p.default = 0; p.val = 0
-    # modulation In CHOP: last input
-    nin = len([o for o in c.children if o.OPType in ('inTOP', 'inPOP', 'inSOP', 'inCHOP', 'inDAT')])
-    mi = c.create(td.inCHOP, 'in%d' % (nin + 1))
-    ml = c.create(td.textDAT, 'modlib'); ml.text = MODLIB
-    P = 'parent().par.'
-    L = "(%sLoopbeats*60.0/%sBpm if %sLoopbeats>0 else %sLoopseconds)" % (P, P, P, P)
-    k = c.create(td.constantCHOP, 'clock')
-    k.par.name0 = 'len'; k.par.value0.expr = L
-    k.par.name1 = 'ph'
-    k.par.value1.expr = "op('modlib').module.phase() if %sTimesource=='phase' else ((absTime.seconds/%s) %% 1.0)" % (P, L)
-    k.par.name2 = 't'
-    k.par.value2.expr = "(op('modlib').module.phase()*%s) if %sTimesource=='phase' else absTime.seconds" % (L, P)
-    o = c.op(out)
-    src = looksrc or o.inputs[0]
-    lk = c.create(td.glslTOP, 'look')
-    lk.par.pixeldat = c.create(td.textDAT, 'look_glsl')
-    lk.par.pixeldat.eval().text = LOOKGLSL
-    lk.inputConnectors[0].connect(src)
-    lk.par.outputresolution = 'useinput'
-    lk.par.format = 'rgba16float'
-    lk.seq.vec.numBlocks = 1
-    lk.par.vec0name = 'uL'
-    lk.par.vec0valuex.expr = "1 if parent().par.Look=='mono' else 0"
-    lk.par.vec0valuey.expr = "parent().par.Accent"
-    lk.par.vec0valuez.val = accmode
-    lk.par.vec0valuew.expr = "parent().par.Monogain"
-    o.inputConnectors[0].connect(lk)
-    e = c.create(td.executeDAT, 'loopexec')
-    e.text = ("def onFrameStart(frame):\n"
-              "    c = parent()\n"
-              "    if not c.par.Loopreset.eval(): return\n"
-              "    ph = op('clock')['ph'].eval()\n"
-              "    prev = c.fetch('_lastph', ph)\n"
-              "    c.store('_lastph', ph)\n"
-              "    if ph < prev - 0.5:\n"
-              "        c.par.%s.pulse()\n"
-              "    return\n" % rst)
-    e.par.framestart = True; e.par.active = True
-PHX = "op('clock')['ph']"      # wrapped loop phase 0..1
-TX = "op('clock')['t']"        # loop-aware seconds
 def MOD(n, d=0.0): return "op('modlib').module.m('%s', %s)" % (n, d)
-# RETRO END
-
-NAME = 'GEN_fluid_2d'
-HERE = os.path.expanduser('~/software/td-plugins/components/' + NAME)
-def rd(f): return open(os.path.join(HERE, f)).read()
 
 bld = op('/').op('build') or op('/').create(td.baseCOMP, 'build')
 old = bld.op(NAME)
@@ -91,13 +22,16 @@ c = bld.create(td.baseCOMP, NAME)
 
 def text(name, s):
     t = c.create(td.textDAT, name); t.text = s; return t
+SIMW = "(parent().par.Resolutionw if parent().par.Resolutionmode=='custom' else op('src').width)"
+SIMH = "(parent().par.Resolutionh if parent().par.Resolutionmode=='custom' else op('src').height)"
+def setres(o):
+    o.par.outputresolution = 'custom'
+    o.par.resolutionw.expr = SIMW; o.par.resolutionh.expr = SIMH
 def glsl(name, fname, inputs=(), vecs=(), passes=None, fmt='rgba32float'):
     g = c.create(td.glslTOP, name)
     g.par.pixeldat = text(name + '_glsl', rd(fname))
     g.par.format = fmt
-    g.par.outputresolution = 'custom'
-    g.par.resolutionw.expr = "parent().par.Resolutionw"
-    g.par.resolutionh.expr = "parent().par.Resolutionh"
+    setres(g)
     for i, s in enumerate(inputs): g.inputConnectors[i].connect(s)
     if vecs: g.seq.vec.numBlocks = len(vecs)
     for i, (n, exprs) in enumerate(vecs):
@@ -106,7 +40,7 @@ def glsl(name, fname, inputs=(), vecs=(), passes=None, fmt='rgba32float'):
             getattr(g.par, f'vec{i}value' + 'xyzw'[j]).expr = e
     if passes: g.par.npasses.expr = passes
     return g
-def V(name, par): return (name, [par if par.startswith('parent') or par[0].isdigit() or par.startswith('absTime') else f"parent().par.{par}"])
+def V(name, par): return (name, [par if par.startswith(('parent', 'op(')) else f"parent().par.{par}"])
 
 def addf(page, name, label, d, lo=None, hi=None, nlo=None, nhi=None):
     q = page.appendFloat(name, label=label)[0]
@@ -121,57 +55,80 @@ def addf(page, name, label, d, lo=None, hi=None, nlo=None, nhi=None):
 p = c.appendCustomPage('Controls')
 q = p.appendToggle('Play', label='Play')[0]; q.default = 1; q.val = 1
 p.appendPulse('Reset', label='Reset')
+addf(p, 'Mix', 'Mix', 1.0, 0, 1, 0, 1)
+q = p.appendToggle('Bypass', label='Bypass')[0]; q.default = 0; q.val = 0
+q = p.appendMenu('Resolutionmode', label='Resolution Mode')[0]
+q.menuNames = ['input', 'custom']; q.menuLabels = ['Input', 'Custom']; q.default = 'input'; q.val = 'input'
 q = p.appendWH('Resolution', label='Resolution'); q[0].default = q[0].val = 1280; q[1].default = q[1].val = 720
 q[0].min = q[1].min = 16; q[0].clampMin = q[1].clampMin = True
+q = p.appendMenu('Dyesource', label='Dye Source')[0]
+q.menuNames = ['inject', 'seed']; q.menuLabels = ['Inject continuously', 'Seed on Reset only']; q.default = 'inject'; q.val = 'inject'
+addf(p, 'Injectrate', 'Inject Rate', 0.02, 0, 1, 0, 0.3)
 addf(p, 'Speed', 'Speed', 1.0, 0, 4, 0, 2)
 q = p.appendInt('Iterations', label='Pressure Iterations')[0]; q.default = q.val = 20; q.min = 1; q.max = 200; q.normMax = 60
-addf(p, 'Vorticity', 'Vorticity', 0.3, 0, 5, 0, 1.5)
+addf(p, 'Vorticity', 'Vorticity', 0.5, 0, 5, 0, 1.5)
 addf(p, 'Veldissipation', 'Velocity Dissipation', 0.003, 0, 0.5, 0, 0.05)
-addf(p, 'Dyedissipation', 'Dye Dissipation', 0.015, 0, 0.5, 0, 0.1)
+addf(p, 'Dyedissipation', 'Dye Dissipation', 0.0, 0, 0.5, 0, 0.1)
 
-p = c.appendCustomPage('Emitter')
-q = p.appendInt('Emitters', label='Emitters')[0]; q.default = q.val = 3; q.min = 0; q.max = 6
-addf(p, 'Splatsize', 'Splat Size', 0.05, 0.002, 0.5, 0.01, 0.2)
-addf(p, 'Force', 'Force', 0.8, 0, 50, 0, 6)
-addf(p, 'Density', 'Dye Amount', 0.04, 0, 5, 0, 1)
-addf(p, 'Emitterspeed', 'Emitter Speed', 1.0, 0, 10, 0, 4)
-addf(p, 'Huespeed', 'Hue Speed', 0.05, 0, 2, 0, 0.5)
-
-p = c.appendCustomPage('Input')
-addf(p, 'Inputdensity', 'Input Density', 0.5, 0, 20, 0, 4)
-addf(p, 'Inputvelocity', 'Input Velocity', 1.0, 0, 20, 0, 4)
-
-p = c.appendCustomPage('Render')
-addf(p, 'Exposure', 'Exposure', 1.5, 0, 20, 0, 6)
-addf(p, 'Saturation', 'Saturation', 1.2, 0, 3, 0, 2)
-q = p.appendRGB('Background', label='Background')
-for par, v in zip(q, (0.0, 0.0, 0.02)): par.default = v; par.val = v
+p = c.appendCustomPage('Forces')
+addf(p, 'Forcein', 'In2 Force', 1.0, 0, 50, 0, 10)
+addf(p, 'Edgeforce', 'Edge Force', 0.3, 0, 20, 0, 4)
+q = p.appendInt('Emitters', label='Stir Emitters')[0]; q.default = q.val = 2; q.min = 0; q.max = 6
+addf(p, 'Splatsize', 'Splat Size', 0.06, 0.002, 0.5, 0.01, 0.2)
+addf(p, 'Force', 'Stir Force', 0.8, 0, 50, 0, 6)
+addf(p, 'Emitterspeed', 'Stir Speed', 0.12, 0, 2, 0, 0.6)
 
 # ---------------- network ----------------
 inn = c.create(td.inTOP, 'in1')
+in2 = c.create(td.inTOP, 'in2')
+inm = c.create(td.inCHOP, 'in3')
+ml = c.create(td.textDAT, 'modlib'); ml.text = MODLIB
+
+# demo (preview only): colourful noise + text. Gated by the switch below.
+demo = c.create(td.baseCOMP, 'demo')
+dn = demo.create(td.noiseTOP, 'noise'); dn.par.outputresolution = 'custom'; dn.par.resolutionw = 1280; dn.par.resolutionh = 720
+dn.par.mono = False; dn.par.period = 0.35; dn.par.harmon = 1
+dn.par.tz.expr = 'absTime.seconds * 0.05'
+dt_ = demo.create(td.textTOP, 'text'); dt_.par.text = 'FLUID'
+dt_.par.outputresolution = 'custom'; dt_.par.resolutionw = 1280; dt_.par.resolutionh = 720
+dt_.par.fontsizex = 260; dt_.par.fontcolorr = dt_.par.fontcolorg = dt_.par.fontcolorb = 1
+dt_.par.bgcolorr = dt_.par.bgcolorg = dt_.par.bgcolorb = 0; dt_.par.bgalpha = 0
+dco = demo.create(td.compositeTOP, 'over'); dco.par.operand = 'over'
+dco.inputConnectors[0].connect(dt_); dco.inputConnectors[1].connect(dn)
+dout = demo.create(td.outTOP, 'dout'); dout.inputConnectors[0].connect(dco)
+
+src = c.create(td.switchTOP, 'src')
+src.inputConnectors[0].connect(demo.outputConnectors[0])
+src.inputConnectors[0].connect(demo.outputConnectors[0])
+src.inputConnectors[1].connect(inn)
+src.par.index.expr = "(1 if len(parent().inputConnectors[0].connections) else 0) + 0*absTime.frame"
+
 zero = c.create(td.constantTOP, 'zero')
 zero.par.format = 'rgba32float'
 for a in ('colorr', 'colorg', 'colorb'): setattr(zero.par, a, 0)
 zero.par.alpha = 1
-zero.par.outputresolution = 'custom'
-zero.par.resolutionw.expr = "parent().par.Resolutionw"; zero.par.resolutionh.expr = "parent().par.Resolutionh"
+setres(zero)
+seed = c.create(td.nullTOP, 'dye_seed'); seed.par.format = 'rgba32float'
+setres(seed); seed.inputConnectors[0].connect(src)
 
-def fbk(name):
+def fbk(name, init):
     f = c.create(td.feedbackTOP, name); f.par.format = 'rgba32float'
-    f.inputConnectors[0].connect(zero); return f
-fbV, fbP, fbD = fbk('fb_vel'), fbk('fb_pressure'), fbk('fb_dye')
+    f.inputConnectors[0].connect(init); return f
+fbV, fbP, fbD = fbk('fb_vel', zero), fbk('fb_pressure', zero), fbk('fb_dye', seed)
 
 DT = ('uDt', ["parent().par.Speed * parent().par.Play"])
-ASP = ('uAspect', ["parent().par.Resolutionw / parent().par.Resolutionh"])
-TIME = ('uPh', [PHX])
-EMC = ('uEmitCyc', ["math.floor(parent().par.Emitterspeed+0.5)"])
-HAS = ('uHasIn', ["1 if len(parent().inputConnectors[0].connections) else 0"])
-RS = ('uResScale', ["parent().par.Resolutionh / 720.0"])
+ASP = ('uAspect', [f"{SIMW} / {SIMH}"])
+RS = ('uResScale', [f"{SIMH} / 720.0"])
 
+force = glsl('force', 'force.glsl', inputs=[src, in2], vecs=[
+    V('uEdge', 'Edgeforce'), V('uForceIn', 'Forcein'),
+    ('uHas2', ["1 if len(parent().inputConnectors[1].connections) else 0"]), RS])
 curl = glsl('curl', 'curl.glsl', inputs=[fbV])
-vadv = glsl('vel_adv', 'vel_adv.glsl', inputs=[fbV, curl, inn], vecs=[
-    DT, V('uVelDiss', 'Veldissipation'), V('uVort', 'Vorticity'), TIME, ASP, HAS, V('uInVel', 'Inputvelocity'),
-    V('uEmitters', 'Emitters'), V('uSplatSize', 'Splatsize'), ('uForce', ["parent().par.Force*(1+3*"+MOD('beat')+")"]), EMC, RS])
+vadv = glsl('vel_adv', 'vel_adv.glsl', inputs=[fbV, curl, force], vecs=[
+    DT, V('uVelDiss', 'Veldissipation'), ('uVort', ["parent().par.Vorticity*(1+2*" + MOD('band1') + ")"]),
+    ('uT', ["absTime.seconds * parent().par.Emitterspeed"]), ASP,
+    V('uEmitters', 'Emitters'), V('uSplatSize', 'Splatsize'),
+    ('uForce', ["parent().par.Force*(1+3*" + MOD('beat') + ")"]), RS])
 div = glsl('divergence', 'div.glsl', inputs=[vadv])
 jac = glsl('jacobi', 'jacobi.glsl', inputs=[fbP, div], passes="max(1, int(parent().par.Iterations))")
 pnull = c.create(td.nullTOP, 'pressure'); pnull.par.format = 'rgba32float'; pnull.inputConnectors[0].connect(jac)
@@ -179,18 +136,19 @@ fbP.par.top = pnull
 proj = glsl('project', 'project.glsl', inputs=[vadv, pnull])
 vel = c.create(td.nullTOP, 'velocity'); vel.par.format = 'rgba32float'; vel.inputConnectors[0].connect(proj)
 fbV.par.top = vel
-dadv = glsl('dye_adv', 'dye_adv.glsl', inputs=[fbD, vel, inn], vecs=[
-    DT, V('uDyeDiss', 'Dyedissipation'), TIME, ASP, HAS, V('uInDens', 'Inputdensity'),
-    V('uEmitters', 'Emitters'), V('uSplatSize', 'Splatsize'), ('uDensity', ["parent().par.Density*(1+2*"+MOD('band1')+")"]),
-    EMC, ('uHueCyc', ["(max(1, math.floor(parent().par.Huespeed*op('clock')['len']+0.5)) if parent().par.Huespeed>0 else 0)"])])
+dadv = glsl('dye_adv', 'dye_adv.glsl', inputs=[fbD, vel, src], vecs=[
+    DT, V('uDyeDiss', 'Dyedissipation'),
+    ('uInject', ["parent().par.Injectrate if parent().par.Dyesource=='inject' else 0"])])
 dye = c.create(td.nullTOP, 'dye'); dye.par.format = 'rgba32float'; dye.inputConnectors[0].connect(dadv)
 fbD.par.top = dye
-col = glsl('color', 'color.glsl', fmt='rgba8fixed', inputs=[dye], vecs=[
-    V('uExposure', 'Exposure'), V('uSat', 'Saturation'),
-    ('uBg', ["parent().par.Backgroundr", "parent().par.Backgroundg", "parent().par.Backgroundb"])])
-o1 = c.create(td.nullTOP, 'out1'); o1.inputConnectors[0].connect(col)
-o1.comment = 'dye'
+mixg = glsl('mixout', 'mix.glsl', fmt='rgba16float', inputs=[dye, src], vecs=[V('uMix', 'Mix')])
+byp = c.create(td.switchTOP, 'bypass')
+byp.inputConnectors[0].connect(mixg); byp.inputConnectors[0].connect(mixg)
+byp.inputConnectors[1].connect(src)
+byp.par.index.expr = "parent().par.Bypass"
+o1 = c.create(td.nullTOP, 'out1'); o1.inputConnectors[0].connect(byp); o1.comment = 'smeared image'
 o2 = c.create(td.nullTOP, 'out2'); o2.comment = 'velocity'; o2.par.format = 'rgba32float'; o2.inputConnectors[0].connect(vel)
+o3 = c.create(td.nullTOP, 'out3'); o3.comment = 'dye field'; o3.par.format = 'rgba32float'; o3.inputConnectors[0].connect(dye)
 
 # ---------------- callbacks ----------------
 pe = c.create(td.parameterexecuteDAT, 'parexec')
@@ -202,8 +160,6 @@ def onPulse(par):
         for n in ('fb_vel', 'fb_pressure', 'fb_dye'):
             par.owner.op(n).par.resetpulse.pulse()
 '''
-
-retro(c, accmode=0, gain=3.0)
 for i, o in enumerate(c.children):
     o.nodeX = 200 * (i % 7); o.nodeY = -150 * (i // 7)
 c.par.opviewer = o1

@@ -5,10 +5,9 @@ NEEDS A DENSE MESH (preview sphere is 320x640 quads). Pattern is a 3D Worley lat
 
 ## Common
 - Inputs: `in1` TOP (optional equirect environment map, used when `Envmix`>0; otherwise a built-in procedural studio env: overhead softbox, strip lights, rim strip, red accent bar), `in2` CHOP (optional, ferrofluid only).
-- Output: `out1` TOP = preview render (sphere + torus knot, slow rotation, dark backdrop, ACES tonemap). MAT is at `<comp>/mat` (GLSL MAT; uses `TDPos/TDDeform` only, no UVs, no TD lights) — assign it to any geometry via `<comp>/mat`.
+- Output: `out1` = Out MAT (the material); internal `preview` TOP (not an output) = preview render (sphere + torus knot, slow rotation, dark backdrop, ACES tonemap). MAT is at `<comp>/mat` (GLSL MAT; uses `TDPos/TDDeform` only, no UVs, no TD lights) — assign it to any geometry via `<comp>/mat`.
 - Material page common params: `Envmix` (0 = procedural env, 1 = in1 equirect), `Envrot` (env rotation 0-1), `Envgain`, `Accent` (red accent bar strength in env), `Speed`.
-- Preview page: `Resolution`, `Geometry` (both/sphere/knot), `Spin` (turns per loop), `Camdist`, `Backdrop`, `Exposure`, `Vignette`.
-- Loop page: `Timesource` (abstime/phase), `Phase`, `Loopseconds`, `Loopbeats`, `Bpm`. The MAT receives a wrapped phase `uP0.x` in [0,1); every animated term is a periodic function of it (integer harmonics, or two-layer crossfade), and spin is an integer number of turns, so Phase 0 == 1 is seamless.
+- Preview page: `Resolution`, `Geometry` (both/sphere/knot), `Spin` (turns per preview cycle), `Camdist`, `Backdrop`, `Exposure`, `Vignette`.
 - Uniforms are set from the comp pars through expressions on the MAT Vectors page (names listed below).
 
 - `in2` CHOP (optional): channel 0 is added to the field strength (audio-like): amp = Baseline + Modulation + chop*Modgain + attractor pull.
@@ -29,7 +28,6 @@ NEEDS A DENSE MESH (preview sphere is 320x640 quads). Pattern is a 3D Worley lat
 | Basecolor / Reflectivity / Roughness | shading |
 
 Uniforms: uF0 (Spikescale, Height, Sharp, Regular), uF1 (Baseline, Modulation(+chop), Pull, Reach), uF2 (attractor xyz, Lean), uF3 (Wobble, Variation), uF4 (base rgb, Reflectivity), uF5 (Roughness).
-Loop: attractor orbit and wobble are periodic in phase (orbit uses sin/cos of 2*pi*phase).
 Known limits: pixel normals ignore Lean; shading assumes roughly unit object/world scale; spikes are in the vertex stage so cost scales with mesh density.
 
 ## Inputs and outputs
@@ -39,8 +37,7 @@ Known limits: pixel normals ignore Lean; shading assumes roughly unit object/wor
 | in2 | CHOP | field-strength modulation (channel 0 x Modgain). Last input |
 | Outputs | Type | Label |
 |---|---|---|
-| out1 | TOP | preview (render of the material on test geometry) |
+| out1 | MAT | material (the `mat` GLSL MAT); the preview render is the internal `preview` TOP |
 
 The material itself is `<comp>/mat`: set a Geometry COMP's Material parameter to e.g. `op('ex1_MAT_ferrofluid/mat')` (see the snippets). Its uniforms are driven from this COMP's parameters, so keep the MAT inside the COMP.
 
-**Clock (Loop page):** the `Clock` parameter takes a CHOP. When it is set and `Timesource` = `phase`, the loop phase is read from that CHOP's `phase` channel (0-1) instead of `Phase`. Drive it with a ramp LFO (amp 1, channel name `phase`) or a Beat CHOP.

@@ -1,0 +1,1 @@
+{"inputs": {"in1": "SDF (DAT)", "in2": "environment (equirect TOP)"}, "outputs": {"out1": "color", "out2": "depth (linear)", "out3": "normals (view)", "out4": "world position"}}

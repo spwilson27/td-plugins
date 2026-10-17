@@ -1,0 +1,1 @@
+{"inputs": {"in1": "normals (view space)", "in2": "matcap (optional)", "in3": "color / albedo (optional)"}, "outputs": {"out1": "shaded image"}}

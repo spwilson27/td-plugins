@@ -1,0 +1,1 @@
+{"description": "SDF primitive: sphere (radius, colour). Wire its SDF output into other SDF_ nodes.", "version": "1.0.0"}

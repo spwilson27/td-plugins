@@ -84,7 +84,7 @@ def input_stage(c, comp, bg=1.0):
     d = glsl(c, 'defsrc', rd(comp, 'src.glsl'), vecs=[('uTime', ['absTime.seconds', 0, 0, 0]), ('uBg', [bg, 0, 0, 0])], res=True)
     sw = c.create(td.switchTOP, 'src')
     sw.inputConnectors[0].connect(d); sw.inputConnectors[1].connect(i)
-    sw.par.index.expr = "1 if parent().inputConnectors[0].connections else 0"
+    sw.par.index.expr = "1 if (len(parent().inputConnectors[0].connections)+0*absTime.frame) else 0"
     setres(sw)
     sw.par.format = 'rgba16float'
     return sw
@@ -101,43 +101,10 @@ def report(c):
         for k, s in (('err', o.errors()), ('warn', o.warnings()), ('script', o.scriptErrors())):
             if s: print(k, o.path, s[:300])
 
-# ---- loop helpers (batch 2) ----
-def loop_page(c, seconds=8.0, beats=16):
-    pg = c.appendCustomPage('Loop')
-    p = pg.appendMenu('Timesource')[0]
-    p.menuNames = ['abstime', 'phase']; p.menuLabels = ['Absolute Time', 'Phase (external)']
-    p.default = 'abstime'; p.val = 'abstime'
-    pg.appendCHOP('Clock')
-    p = pg.appendFloat('Phase')[0]; p.min = 0; p.max = 1; p.normMin = 0; p.normMax = 1; p.default = 0; p.val = 0
-    p = pg.appendFloat('Loopseconds')[0]; p.min = 0.5; p.max = 120; p.normMin = 1; p.normMax = 60; p.default = seconds; p.val = seconds
-    p = pg.appendInt('Loopbeats')[0]; p.min = 1; p.max = 256; p.normMin = 1; p.normMax = 64; p.default = beats; p.val = beats
-    p = pg.appendFloat('Bpm')[0]; p.min = 20; p.max = 300; p.normMin = 60; p.normMax = 200; p.default = 120; p.val = 120
-    p = pg.appendToggle('Usebeats')[0]; p.default = False; p.val = False
-    return pg
-
-def make_clock(c):
-    """constant CHOP 'clock': len (loop seconds), ph (0-1 phase), t (seconds, = ph*len in phase mode)"""
-    k = c.create(td.constantCHOP, 'clock')
-    P = 'parent().par.'
-    PHS = "(float(parent().par.Clock.eval()['phase']) if parent().par.Clock.eval() else parent().par.Phase)"
-    L = "((%sLoopbeats*60.0/%sBpm) if %sUsebeats else %sLoopseconds)" % (P, P, P, P)
-    exprs = [('len', L),
-             ('ph', "((absTime.seconds/%s)%%1.0) if %sTimesource=='abstime' else %s" % (L, P, PHS)),
-             ('t', "absTime.seconds if %sTimesource=='abstime' else %s*%s" % (P, PHS, L))]
-    k.par.name0 = 'len'; k.par.value0.expr = exprs[0][1]
-    k.par.name1 = 'ph'; k.par.value1.expr = exprs[1][1]
-    k.par.name2 = 't'; k.par.value2.expr = exprs[2][1]
-    return k
-CLK_PH = "op('clock')['ph']"
-CLK_T = "op('clock')['t']"
-
 COMP = 'POP_mesh_deformer'
 name = COMP
 c = new_comp(name)
 add_pars(c, [
- ('Resolution','wh',(1280,720)),
- ('Source','menu',[('sphere','Sphere'),('torus','Torus'),('input','Input POP (in1)')],2),
- ('Detail','int',160,24,400),
  ('Twist','float',0.6,-4,4),
  ('Bend','float',0.35,-2,2),
  ('Inflate','float',0.12,-1,1.5),
@@ -150,6 +117,9 @@ add_pars(c, [
  ('Modgain','float',1.0,0,3),
 ])
 add_pars(c, [
+ ('Resolution','wh',(1280,720)),
+ ('Demoshape','menu',[('sphere','Sphere'),('torus','Torus')],1),
+ ('Detail','int',160,24,400),
  ('Metallic','float',1.0,0,1),
  ('Roughness','float',0.28,0.02,1),
  ('Basecolor','rgb',(0.86,0.86,0.88)),
@@ -161,28 +131,51 @@ add_pars(c, [
  ('Orbitturns','int',1,0,4),
  ('Fov','float',50,10,90),
  ('Bgcolor','rgb',(0.006,0.006,0.008)),
-], page='Render')
-loop_page(c, 12.0, 24)
-clk = make_clock(c)
+], page='Preview')
 P = 'parent().par.'
-PH = CLK_PH
+PH = "(absTime.seconds/12.0)"      # internal preview animation (no loop parameters)
 ang = "2*math.pi*"+PH
 
-# ---- modulation inputs
-inc = c.create(td.inCHOP, 'in3'); inc.par.connectorder = 3
+# ---- inputs: in1 POP, in2 modulation CHOP (band1..band4, beat)
 inp = c.create(td.inPOP, 'in1'); inp.par.connectorder = 1
-fake = c.create(td.constantCHOP, 'fakemod')
-fk = [("0.5+0.5*math.cos(2*math.pi*4*%s)" % PH),                       # kick-ish
-      ("(0.5+0.5*math.sin(2*math.pi*(1*%s)))**1.5" % PH),
-      ("(0.5+0.5*math.sin(2*math.pi*(3*%s+0.2)))**3" % PH),
-      ("(0.5+0.5*math.sin(2*math.pi*(2*%s+0.6)))*(0.5+0.5*math.sin(2*math.pi*5*%s))" % (PH, PH))]
-fk[0] = "abs(math.sin(math.pi*4*%s))**6" % PH
+inc = c.create(td.inCHOP, 'in2'); inc.par.connectorder = 2
+CON = "(len(parent().inputConnectors[0].connections)+0*absTime.frame)>0"
+CONM = "(len(parent().inputConnectors[1].connections)+0*absTime.frame)>0"
+
+# ---- demo COMP: preview-only sources (demo shape + fake audio bands); not selected when in1 is connected
+demo = c.create(td.baseCOMP, 'demo')
+PP = 'parent(2).par.'
+sp = demo.create(td.spherePOP, 'src_sphere'); sp.par.type = 'sharedpoles'; sp.par.surftype = 'triangles'
+sp.par.radx = 1; sp.par.rady = 1; sp.par.radz = 1; sp.par.normal = True
+sp.par.cols.expr = PP+'Detail*2'; sp.par.rows.expr = PP+'Detail'
+tr = demo.create(td.torusPOP, 'src_torus'); tr.par.surftype = 'triangles'
+tr.par.radx = 0.9; tr.par.rady = 0.38; tr.par.normal = True
+tr.par.cols.expr = PP+'Detail*2'; tr.par.rows.expr = PP+'Detail'
+dsw = demo.create(td.switchPOP, 'shape'); dsw.inputConnectors[0].connect(sp); dsw.inputConnectors[1].connect(tr)
+dsw.par.index.expr = "1 if %sDemoshape=='torus' else 0" % PP
+dshape = demo.create(td.outPOP, 'out1'); dshape.inputConnectors[0].connect(dsw)
+fake = demo.create(td.constantCHOP, 'fakemod')
+T = "(absTime.seconds/12.0)"
+fk = ["abs(math.sin(math.pi*4*%s))**6" % T,
+      "(0.5+0.5*math.sin(2*math.pi*(1*%s)))**1.5" % T,
+      "(0.5+0.5*math.sin(2*math.pi*(3*%s+0.2)))**3" % T,
+      "(0.5+0.5*math.sin(2*math.pi*(2*%s+0.6)))*(0.5+0.5*math.sin(2*math.pi*5*%s))" % (T, T)]
 for i, e in enumerate(fk):
     getattr(fake.par, 'name%d' % i).val = 'band%d' % (i+1)
     getattr(fake.par, 'value%d' % i).expr = e
+dmod = demo.create(td.outCHOP, 'out2'); dmod.inputConnectors[0].connect(fake)
+
+src = c.create(td.switchPOP, 'src_switch')
+src.inputConnectors[0].connect(demo.outputConnectors[0]); src.inputConnectors[1].connect(inp)
+src.par.index.expr = "1 if %s else 0" % CON
+n0 = c.create(td.normalPOP, 'normals_in'); n0.inputConnectors[0].connect(src)
+
+zero = c.create(td.constantCHOP, 'mod_zero')
+for i in range(4):
+    getattr(zero.par, 'name%d' % i).val = 'band%d' % (i+1); getattr(zero.par, 'value%d' % i).val = 0
 msw = c.create(td.switchCHOP, 'modsw')
-msw.inputConnectors[0].connect(fake); msw.inputConnectors[1].connect(inc)
-msw.par.index.expr = "1 if parent().inputConnectors[2].connections else 0"
+msw.inputConnectors[0].connect(zero); msw.inputConnectors[1].connect(inc); msw.inputConnectors[2].connect(demo.outputConnectors[1])
+msw.par.index.expr = "1 if %s else (0 if %s else 2)" % (CONM, CON)   # demo bands only when nothing is connected
 fin = c.create(td.constantCHOP, 'final')
 def band(i): return "(op('modsw')['band%d'] or 0)" % i
 G = P + 'Modgain'
@@ -195,18 +188,6 @@ for i, (nm, base, md) in enumerate(amts):
     getattr(fin.par, 'name%d' % i).val = nm
     getattr(fin.par, 'value%d' % i).expr = "%s + %s" % (base, md)
 def F(n): return "op('final')['%s']" % n
-
-# ---- source geometry
-sp = c.create(td.spherePOP, 'src_sphere'); sp.par.type = 'sharedpoles'; sp.par.surftype = 'triangles'
-sp.par.radx = 1; sp.par.rady = 1; sp.par.radz = 1; sp.par.normal = True
-sp.par.cols.expr = P+'Detail*2'; sp.par.rows.expr = P+'Detail'
-tr = c.create(td.torusPOP, 'src_torus'); tr.par.surftype = 'triangles'
-tr.par.radx = 0.9; tr.par.rady = 0.38; tr.par.normal = True
-tr.par.cols.expr = P+'Detail*2'; tr.par.rows.expr = P+'Detail'
-sw = c.create(td.switchPOP, 'src_switch')
-sw.inputConnectors[0].connect(sp); sw.inputConnectors[1].connect(tr); sw.inputConnectors[2].connect(inp)
-sw.par.index.expr = "(2 if parent().inputConnectors[0].connections else 0) if %sSource=='input' else (1 if %sSource=='torus' else 0)" % (P, P)
-n0 = c.create(td.normalPOP, 'normals_in'); n0.inputConnectors[0].connect(sw)
 
 # ---- deform
 dd = mkdat(c, 'deform_code', rd(name, 'deform.glsl'))
@@ -223,19 +204,16 @@ for i, (nm, vals) in enumerate([('uA',[F('twist'),F('bend'),F('inflate'),F('nois
         if isinstance(v, str): p.expr = v
         else: p.val = v
 n1 = c.create(td.normalPOP, 'normals_out'); n1.inputConnectors[0].connect(g)
-o2 = c.create(td.nullPOP, 'out2'); o2.comment = 'deformed mesh'; o2.inputConnectors[0].connect(n1)
+o1 = c.create(td.nullPOP, 'out1'); o1.comment = 'deformed mesh'; o1.inputConnectors[0].connect(n1)
 
-# ---- studio look
+# ---- internal preview render (studio chrome)
 env = glsl(c, 'envmap', open(os.path.join(ROOT,'components','_lib','env.glsl')).read(),
            vecs=[('uA',[P+'Envintensity', P+'Redaccent', 0, 0])], fmt='rgba16float')
 env.par.outputresolution = 'custom'; env.par.resolutionw = 1024; env.par.resolutionh = 512
-inenv = c.create(td.inTOP, 'in2'); inenv.par.connectorder = 2
-esw = c.create(td.switchTOP, 'env_switch'); esw.inputConnectors[0].connect(env); esw.inputConnectors[1].connect(inenv)
-esw.par.index.expr = "1 if parent().inputConnectors[1].connections else 0"
 
 geo = c.create(td.geometryCOMP, 'geo')
 for o in list(geo.children): o.destroy()
-sel = geo.create(td.selectPOP, 'select'); sel.par.pop = o2
+sel = geo.create(td.selectPOP, 'select'); sel.par.pop = o1
 sel.display = True; sel.render = True
 mat = c.create(td.pbrMAT, 'mat')
 mat.par.basecolorr.expr = P+'Basecolorr'; mat.par.basecolorg.expr = P+'Basecolorg'; mat.par.basecolorb.expr = P+'Basecolorb'
@@ -249,7 +227,7 @@ cam.par.tz.expr = "math.cos(%s*%sOrbitturns)*%sCamdist" % (ang, P, P)
 cam.par.ty.expr = P+'Camheight'
 cam.par.fov.expr = P+'Fov'
 cam.par.lookat = tgt
-el = c.create(td.environmentlightCOMP, 'envlight'); el.par.envlightmap = esw
+el = c.create(td.environmentlightCOMP, 'envlight'); el.par.envlightmap = env
 el.par.dimmer = 1
 key = c.create(td.lightCOMP, 'key'); key.par.tx = -3; key.par.ty = 4; key.par.tz = 3; key.par.lookat = tgt
 key.par.dimmer.expr = P+'Keyintensity'; key.par.shadowtype = 'off'
@@ -260,6 +238,6 @@ rt.par.camera = cam; rt.par.geometry = geo; rt.par.lights = 'envlight key rim'
 rt.par.outputresolution = 'custom'; rt.par.resolutionw.expr = P+'Resolutionw'; rt.par.resolutionh.expr = P+'Resolutionh'
 rt.par.bgcolorr.expr = P+'Bgcolorr'; rt.par.bgcolorg.expr = P+'Bgcolorg'; rt.par.bgcolorb.expr = P+'Bgcolorb'; rt.par.bgcolora = 1
 rt.par.antialias = 'aa4'; rt.par.format = 'rgba16float'
-o = c.create(td.nullTOP, 'out1'); o.comment = 'render'; o.inputConnectors[0].connect(rt)
+o = c.create(td.nullTOP, 'preview'); o.comment = 'preview render'; o.inputConnectors[0].connect(rt)
 finish(c, name)
 report(c)

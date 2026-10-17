@@ -1,0 +1,1 @@
+{"description": "SDF renderer: raymarches an SDF wire into color, linear depth, view normals and world position, using a Camera COMP.", "version": "1.0.0"}

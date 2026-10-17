@@ -1,0 +1,1 @@
+{"inputs": {"in1": "color", "in2": "depth (linear z)", "in3": "normals (view space)"}, "outputs": {"out1": "color with AO", "out2": "AO mask"}}

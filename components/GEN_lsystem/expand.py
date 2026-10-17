@@ -1,13 +1,13 @@
 # L-system expansion + turtle interpretation. Runs ONLY when relevant parameters change.
 import math
 PRESETS = {
- 'plant': dict(Axiom='X', Rule1='X=F+[[X]-X]-F[-FX]+X', Rule2='F=FF', Rule3='', Iterations=5, Angle=25, Lengthscale=1.0, Heading=65),
- 'tree':  dict(Axiom='X', Rule1='X=F[+X][-X]', Rule2='F=F', Rule3='', Iterations=9, Angle=27, Lengthscale=0.78, Heading=90),
- 'bush':  dict(Axiom='F', Rule1='F=FF+[+F-F-F]-[-F+F+F]', Rule2='', Rule3='', Iterations=4, Angle=22.5, Lengthscale=1.0, Heading=90),
- 'koch':  dict(Axiom='F++F++F', Rule1='F=F-F++F-F', Rule2='', Rule3='', Iterations=4, Angle=60, Lengthscale=1.0, Heading=0),
- 'dragon':dict(Axiom='FX', Rule1='X=X+YF+', Rule2='Y=-FX-Y', Rule3='', Iterations=11, Angle=90, Lengthscale=1.0, Heading=0),
+ 'plant': dict(Axiom='X', Rule1='X=F+[[X]-X]-F[-FX]+X', Rule2='F=FF', Rule3='', Iterations=5, Angle=25, Lengthscale=1.0, Heading=65, Anchor='root'),
+ 'tree':  dict(Axiom='X', Rule1='X=F[+X][-X]', Rule2='F=F', Rule3='', Iterations=9, Angle=27, Lengthscale=0.78, Heading=90, Anchor='root'),
+ 'bush':  dict(Axiom='F', Rule1='F=FF+[+F-F-F]-[-F+F+F]', Rule2='', Rule3='', Iterations=4, Angle=22.5, Lengthscale=1.0, Heading=90, Anchor='root'),
+ 'koch':  dict(Axiom='F++F++F', Rule1='F=F-F++F-F', Rule2='', Rule3='', Iterations=4, Angle=60, Lengthscale=1.0, Heading=0, Anchor='center'),
+ 'dragon':dict(Axiom='FX', Rule1='X=X+YF+', Rule2='Y=-FX-Y', Rule3='', Iterations=11, Angle=90, Lengthscale=1.0, Heading=0, Anchor='center'),
 }
-MAX_SEGS = 16000
+MAX_SEGS = 6000
 MAX_CHARS = 600000
 DRAW = set('FGAB01')
 
@@ -60,23 +60,30 @@ def turtle(s, angle, shrink, heading):
             if stack: x, y, h, step, key, depth = stack.pop()
     return segs
 
-def expand(c):
+def build(c, dst):
+    """Fill DAT d (the Script DAT 'segs') with two rows per segment. Cooks only when a parameter it reads changes."""
     rules = parse_rules(c)
     s = rewrite(str(c.par.Axiom.eval()), rules, int(c.par.Iterations.eval()))
     segs = turtle(s, float(c.par.Angle.eval()), float(c.par.Lengthscale.eval()), float(c.par.Heading.eval()))
     if not segs:
         segs = [(0, 0, 0, 0, 0, 1e-6, 0)]
     xs = [v for sg in segs for v in (sg[0], sg[2])]; ys = [v for sg in segs for v in (sg[1], sg[3])]
-    cx = (min(xs) + max(xs)) / 2; cy = (min(ys) + max(ys)) / 2
     ext = max(max(xs) - min(xs), max(ys) - min(ys), 1e-9)
+    # Anchor: root = turtle start sits exactly at the planting point; center = bounding box centred on it
+    if str(c.par.Anchor.eval()) == 'center':
+        cx = (min(xs) + max(xs)) / 2; cy = (min(ys) + max(ys)) / 2
+    else:
+        cx = cy = 0.0
     kmax = max(sg[5] for sg in segs) or 1.0
-    A = [['x0', 'y0', 'x1', 'y1']]; B = [['k0', 'k1', 'depth', 'pad']]
+    # two points per segment: (start, end). cols: x y z | key depth k0 k1 | startx starty startz
+    rows = []
     for x0, y0, x1, y1, k0, k1, d in segs:
-        A.append([round((x0 - cx) / ext, 6), round((y0 - cy) / ext, 6), round((x1 - cx) / ext, 6), round((y1 - cy) / ext, 6)])
-        B.append([round(k0 / kmax, 6), round(k1 / kmax, 6), d, 0])
-    for nm, rows in (('segs_a', A), ('segs_b', B)):
-        t = c.op(nm); t.clear(); t.appendRows(rows)
-    c.op('info').text = 'segments: %d  string: %d chars' % (len(segs), len(s))
+        a = ((x0 - cx) / ext, (y0 - cy) / ext); b = ((x1 - cx) / ext, (y1 - cy) / ext)
+        kk0, kk1 = k0 / kmax, k1 / kmax
+        # point 0 (segment start) holds its own position; point 1 (end) holds the full end position + start in Tex
+        rows.append([round(a[0], 6), round(a[1], 6), 0, kk0, d, kk0, kk1, round(a[0], 6), round(a[1], 6), 0])
+        rows.append([round(b[0], 6), round(b[1], 6), 0, kk1, d, kk0, kk1, round(a[0], 6), round(a[1], 6), 0])
+    dst.clear(); dst.appendRows(rows)
 
 def apply_preset(c, name):
     p = PRESETS.get(name)

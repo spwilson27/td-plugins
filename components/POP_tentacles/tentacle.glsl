@@ -1,6 +1,7 @@
 // straight unit tube (y in -0.5..0.5, radius .5) -> noise-driven curved tentacle. Template root pos in Color.rgb
 // uA: length, wiggle, thick, taper ; uB: theta, noisefreq, pulseamt, pulsefreq
-// uC: grow, tipmin, wavefreq, waveamp ; uD: rootradius, noisecycles, wavecycles, 0
+// uC: grow, tipmin, wavefreq, waveamp ; uD: seed, noisecycles, wavecycles, 0
+// Template tube: y in -0.5..0.5, radius 0.5. The root point of each copy is in the Root attribute.
 uniform vec4 uA, uB, uC, uD;
 float h31(vec3 p){ p = fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
 float vn(vec3 x){
@@ -24,9 +25,9 @@ vec3 spine(float s){          // s in 0..1 along the (grown) tentacle
 void main(){
   const uint id = TDIndex(); if(id >= TDNumElements()) return;
   vec3 lp = TDIn_P();
-  g_root = TDIn_Color().rgb;
+  g_root = TDIn_Root();
   g_dir = normalize(g_root + 1e-5);
-  g_seed = h31(g_root*7.7 + 3.1);
+  g_seed = h31(g_root*7.7 + 3.1 + uD.x*1.37);
   g_p1 = normalize(cross(g_dir, abs(g_dir.y)<0.9 ? vec3(0,1,0) : vec3(1,0,0)));
   g_p2 = cross(g_dir, g_p1);
   float u = clamp(lp.y + 0.5, 0.0, 1.0);

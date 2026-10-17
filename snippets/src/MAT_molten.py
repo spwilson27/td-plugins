@@ -93,9 +93,9 @@ def lfo_band(ex, name='lfo', freq=0.4, col=None, row=2, chan='band1'):
 
 def beat_mod(ex, name='beat', period=4, col=None, row=2):
     b = ex.create(td.beatCHOP, name, col=col, row=row)
-    b.par.ramp = True; b.par.pulse = True; b.par.period = period
+    b.par.ramp = False; b.par.pulse = True; b.par.period = period
     rn = ex.create(td.renameCHOP, name + '_rename', col=None if col is None else col + 1, row=row)
-    rn.par.renamefrom = 'ramp pulse'; rn.par.renameto = 'phase beat'; rn.inputConnectors[0].connect(b)
+    rn.par.renamefrom = 'pulse'; rn.par.renameto = 'beat'; rn.inputConnectors[0].connect(b)
     return rn
 
 def merge_mod(ex, *srcs, col=None, row=2):
@@ -135,15 +135,14 @@ c.par.Glowtintr = 0.4; c.par.Glowtintg = 0.7; c.par.Glowtintb = 1.5
 g = scene(ex, [dict(comp=a, shape='sphere', x=-2.3, scale=0.9), dict(comp=b, shape='sphere', x=0, scale=0.9), dict(comp=c, shape='sphere', x=2.3, scale=0.9)], cam_z=8.8, col0=3, expo=0.9)
 out(ex, 2, g)
 
-ex = example(s, 3, 'Beat-pumped heat + external Clock',
-  'Beat CHOP (channels renamed phase + beat) and an LFO (band1) -> modulation input. Heat is multiplied by 1 + band1*1.5 + beat.\n'
-  'The Beat CHOP phase also drives the Clock parameter (Loop page) with Timesource=phase, so the crack flow loops exactly every 4 beats.\n'
-  'Change the Beat CHOP Period to re-time the loop; raise Modamount for more punch.')
+ex = example(s, 3, 'Beat-pumped heat',
+  'Beat CHOP (pulse renamed beat) and an LFO (band1) -> modulation input. Heat is multiplied by 1 + band1*1.5 + beat.\n'
+  'The crack flow animates by itself (Speed scales it).\n'
+  'Change the Beat CHOP Period to re-time the pulses; raise Modamount for more punch.')
 bt = beat_mod(ex, 'beat', 4, col=0, row=2)
 lf = lfo_band(ex, 'lfo', 0.25, col=2, row=2)
 mg = merge_mod(ex, lf, bt, col=4, row=2)
-p = inst(ex, N, col=0, row=0, Timesource='phase', Heat=1.6, Cooling=0.25, Modamount=1.0)
-p.par.Clock = bt.parent().path + '/' + bt.name if False else mg.name
+p = inst(ex, N, col=0, row=0, Heat=1.6, Cooling=0.25, Modamount=1.0)
 connect(mg, p)
 g = scene(ex, [dict(comp=p, shape='torus', scale=1.0)], cam_z=6.4, expo=0.9, via_render=True)
 out(ex, 3, g)

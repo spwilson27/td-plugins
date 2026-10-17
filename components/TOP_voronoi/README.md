@@ -1,32 +1,19 @@
-# GEN_voronoi
-Animated Voronoi cells in GLSL (up to 128 seeds wandering on sine "noise" paths).
-- Input: `in1` TOP (optional; used by stained glass / cracked glass / glow tint; default animated noise). Output: `out1`.
-- **Controls**: Resolution, Active, Mode (flat cells, edge glow, cracked glass, stained glass), Seeds, Speed, Motion (wander amount), Jitter (0 = grid layout, 1 = random), Borderwidth (px), Glow, Delaunay overlay + Linewidth, Palette, Hue, Seed.
-- Delaunay overlay draws the Gabriel-graph edges (a subset of Delaunay edges, computed in a small adjacency pass `adj`).
+# TOP_voronoi
+Voronoi cells, cracked and stained glass built from an input image. Each cell is coloured by sampling the input at its site; seed density can follow the input's brightness or edges.
 
-## Loop & Look (batch-2 retrofit)
-
-### Loop page
-| Param | Meaning |
+## Inputs / outputs
+| Connector | Label |
 |---|---|
-| Timesource | `abstime` (free-running, original behaviour) or `phase` (motion is a function of `Phase`) |
-| Phase | 0-1 loop phase, drive externally (LFO / timeline / beat clock) in `phase` mode |
-| Loopseconds | loop length used when Timesource=abstime-derived clocks are needed (default 8 s) |
-| Loopbeats / Bpm | if Loopbeats > 0 the loop length is Loopbeats*60/Bpm seconds instead of Loopseconds |
+| in1 (TOP) | image (a built-in animated demo is used when unconnected) |
+| in2 (CHOP, optional) | modulation CHOP: band1 = edge glow, band2 = drift amount, band3 = shard displacement, beat = edge flash |
+| out1 | stylised image |
+| out2 | cell id + edge map: rgb = stable per-cell id colour, alpha = distance to the cell border (0 on the edge, 1 deep inside) |
 
-**How the loop works:** Phase mode: seed wander frequencies snap to integer harmonics of 2*pi*Phase (Speed rounds to whole cycles, min 1), the default noise source uses perlin4d on a circle, edge-glow palette drift uses sin(). Phase 0 vs 0.9999: ~0.001.
+## Parameters
+- **Controls**: Mix, Bypass, Style (cells, edges, cracked glass, stained glass), Seeds (2-128), Jitter (0 = grid, 1 = random), Drift Speed / Amount (seeds wander; Speed 0 = static), Random Seed.
+- **Cells**: Border Width, Edge Glow, Edge Colour + Edge Tint (how much the glow takes the input colours), Shard Displacement (cracked), Delaunay overlay + line width.
+- **Density**: Density Follows (uniform, bright areas, dark areas, edges) and Amount. Seeds are chosen by weighted candidate selection, so they crowd where the input is bright / dark / has contours. With animated input the seeds can jump as the weights change.
+- **Output**: Resolution Mode (input | custom) and Resolution.
+- **Look**: Original or Mono (bone-white and grey, optional red Accent).
 
-### Look page
-`Look` = `Original` (default, unchanged) or `Mono` (black background, bone-white / grey, rendah style). `Accent` (0-1) adds red accents in Mono (a fraction of cells / edges glow red).
-
-## v2 update
-
-Renamed from `voronoi` to `GEN_voronoi` (tox at `tox/GEN/GEN_voronoi.tox`; no per-frame keepalive: outputs are pulled by downstream ops).
-
-**Inputs**: in1 (TOP, optional colour source), in2 (CHOP, optional modulation). The modulation In CHOP is always the last input and reads channels `band1`-`band4`, `beat`, `phase`; missing channels are ignored. Used here: band1: Motion x(1+b), beat: Glow x(1+b).
-
-| Output | Label |
-|---|---|
-| out1 | render |
-
-**Loop page**: new `Clock` CHOP parameter. With `Timesource` = `phase` the phase is read from the `phase` channel of that CHOP (instead of `Phase`). Snippets: `snippets/GEN_voronoi.tox` (About > Snippets).
+The effect is stateless (no Reset needed); seeds are re-derived each frame from the input. There are no loop parameters.

@@ -1,0 +1,1 @@
+{"description": "2D stable fluid that advects and smears the input image as dye (inject or seed), with an optional velocity/force TOP; outputs smeared image, velocity and dye fields. Feed a Text TOP for fluid text.", "version": "1.0.0"}

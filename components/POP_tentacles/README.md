@@ -1,28 +1,25 @@
-# GEN_tentacles
-(Library name `GEN_tentacles`, formerly `tentacles`. Shipped as `tox/GEN/GEN_tentacles.tox`.)
+# POP_tentacles
+Grow writhing tubes from the input points. POP in, POP out: one tentacle grows from every point of `in1`, away from the origin. Shipped as `tox/POP/POP_tentacles.tox`. (Formerly `GEN_tentacles`.)
 
 ## Inputs
 | Input | Type / purpose |
 |---|---|
-| in1 | In TOP (optional) equirectangular environment map, default is a procedural dark studio |
+| in1 | In POP: points (any POP; only its points are used, one tentacle each). With nothing connected a built-in sphere of points (in the gated `demo` COMP) is used. |
+| in2 | In CHOP (optional) modulation: `band1`..`band4`, `beat`. band1 = writhing, band2 = wave, band3 = pulse, band4 = length, beat = thickness swell. |
 
 ## Outputs
 | Output | Label / content |
 |---|---|
-| out1 | render: final image (rgba16float) |
-| out2 | tentacles: tentacle mesh (POP) |
+| out1 | tube mesh (POP): all tentacles, with normals |
 
-## Loop / Clock
-`Clock` (Loop page) takes a CHOP with a `phase` channel (0-1). Set it and `Timesource` = `phase`: the `Phase` parameter is then driven by that channel (clear `Clock` to go back to manual `Phase`). Use a ramp LFO renamed `phase`, or a Beat CHOP ramp renamed `phase`, to lock motion to a tempo.
+The node viewer shows the internal `preview` TOP (a small PBR render of out1, not an output). Render out1 yourself with a Geometry COMP (Select POP) + Render TOP.
 
-Tube geometry along noise-driven splines growing from a sphere surface around a core: taper, pulsing thickness, writhing noise + travelling waves; chrome or matte PBR in a dark studio (softbox environment, red rim).
-
-POP pipeline: straight tube template x N copies (Copy POP) -> GLSL POP bends each tube along a spine and rebuilds a ring frame -> Normal POP. Root position travels with the copy in the Color attribute.
+## Technique
+Straight tube template x N copies (Copy POP, one per input point) -> GLSL POP bends each tube along a noise-driven spine with a rebuilt ring frame -> Normal POP. The root point travels with each copy in the `Root` attribute. Direction of growth = normalized root position. Cost scales with points x Segments x Sides: thin the input points for a lighter mesh.
 
 | Page | Params |
 |---|---|
-| Controls | Resolution, Count, Length, Grow, Autogrow, Segments, Sides, Thickness, Taper, Tipmin, Wiggle, Noisefreq, Noisecycles, Wave, Wavefreq, Wavecycles, Pulse, Pulsefreq, Rootradius, Core |
-| Render | Metallic (1 chrome, 0 matte), Roughness, Basecolor, Envintensity, Redaccent, Keyintensity, Camdist, Camheight, Orbitturns, Fov, Bgcolor |
-| Loop | Timesource (abstime/phase), Phase, Clock, Loopseconds, Loopbeats, Bpm, Usebeats | `phase` mode: all motion is a function of Phase (0-1) and loops at Phase 0==1. Loop length = Loopseconds, or Loopbeats*60/Bpm when Usebeats is on |
+| Controls | Length, Grow, Autogrow, Speed, Seed, Segments, Sides, Thickness, Taper, Tipmin, Wiggle, Noisefreq, Wave, Wavefreq, Pulse, Pulsefreq |
+| Look | Resolution, Metallic, Roughness, Basecolor, Envintensity, Redaccent, Camdist, Camheight, Bgcolor (preview render only) |
 
-Loop seamlessness: noise offset moves on a circle (Noisecycles), travelling wave and pulse phases are integer multiples (Wavecycles) of 2*pi*Phase, Autogrow is a cos of 2*pi*Phase, camera orbit is integer turns.
+Motion uses absolute time scaled by `Speed`; Autogrow grows and retracts the tentacles continuously.

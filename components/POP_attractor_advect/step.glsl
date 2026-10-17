@@ -1,8 +1,10 @@
-// Particle integrator. State (rgba32float): xyz = position in normalised attractor space, w = 1 + speed (0 = uninitialised)
-uniform vec4 uA;   // x=type A, y=type B, z=morph, w=reset
-uniform vec4 uB;   // x=speed (h), y=loop angle, z=substeps, w=seed
-uniform vec4 uC;   // x=coef modulation amount, y=coef modulation speed
-out vec4 fragColor;
+// Attractor advection step. Input 0 = previous state (feedback), input 1 = source points (for rebirth / respawn).
+// World position P is mapped to normalised attractor space q = (P - centre) / size, integrated, and mapped back.
+uniform vec4 uA;   // x=type A, y=type B, z=morph, w=size
+uniform vec4 uB;   // x=step h (speed*play), y=coef wobble angle, z=substeps, w=random seed
+uniform vec4 uC;   // x=coef wobble amount, y=rebirth probability, z=colour speed scale, w=colour mix
+uniform vec4 uD;   // xyz=centre
+uniform vec3 uC1; uniform vec3 uC2;
 
 const vec3  CEN[5] = vec3[5](vec3(0.0, 0.0, 22.4), vec3(0.0, 0.0, 0.6), vec3(0.0), vec3(-3.0, -3.0, -3.0), vec3(1.0, 0.0, 0.4));
 const float SCL[5] = float[5](24.0, 1.6, 4.0, 6.5, 11.0);
@@ -32,31 +34,33 @@ vec3 F(int t, vec3 p, float m){
 vec3 fn(int t, vec3 q, float m){ return DTS[t]*F(t, CEN[t]+SCL[t]*q, m)/SCL[t]; }
 
 void main(){
-    ivec2 ip = ivec2(gl_FragCoord.xy);
-    vec4 s = texelFetch(sTD2DInputs[0], ip, 0);
-    vec3 q = s.xyz;
+    const uint id = TDIndex();
+    if (id >= TDNumElements()) return;
+    vec3 P0 = TDIn_P(1, id);                         // source position
+    vec3 p  = TDIn_P(0, id);                         // advected position
+    float sz = max(uA.w, 1e-4);
+    vec3 q = (p - uD.xyz) / sz;
+    float fid = float(id);
     int ta = int(uA.x+0.5), tb = int(uA.y+0.5);
-    if (uA.w > 0.5 || s.w < 0.5) {
-        vec3 r = vec3(hash(vec3(ip, 1.0+uB.w)), hash(vec3(ip, 2.0+uB.w)), hash(vec3(ip, 3.0+uB.w)));
-        fragColor = vec4((r-0.5)*0.8, 1.0); return;
-    }
-    float m = uC.x*sin(uB.y);   // uB.y = loop angle (2*pi*phase*cycles): coefficient wobble is loop-periodic
+    float m = uC.x*sin(uB.y);
     float mor = clamp(uA.z, 0.0, 1.0);
     float h = uB.x;
-    float spd = 0.0;
     int n = clamp(int(uB.z+0.5), 1, 24);
-    // Morph = fraction of the particle population that follows attractor B (stable per-particle threshold).
-    // Each particle always integrates a *real* attractor, so both shapes stay sharp while the population cross-fades.
-    int t = (hash(vec3(vec2(ip), 9.0)) < mor) ? tb : ta;
+    // Morph = fraction of the points following attractor B (stable per-point threshold): both shapes stay sharp.
+    int t = (hash(vec3(fid, 9.0, 1.0)) < mor) ? tb : ta;
+    float spd = 0.0;
     for (int i = 0; i < n; i++) {
         vec3 k1 = fn(t, q, m);
         vec3 k2 = fn(t, q + 0.5*h*k1, m);
         q += h*k2;
         spd = length(k2);
     }
-    if (!(abs(q.x) < 8.0 && abs(q.y) < 8.0 && abs(q.z) < 8.0)) {   // diverged / NaN -> respawn
-        vec3 r = vec3(hash(vec3(ip, 5.0+uB.y)), hash(vec3(ip, 6.0+uB.y)), hash(vec3(ip, 7.0+uB.y)));
-        q = (r-0.5)*0.4; spd = 0.0;
-    }
-    fragColor = vec4(q, 1.0 + spd);
+    p = uD.xyz + sz*q;
+    bool bad = !(abs(q.x) < 8.0 && abs(q.y) < 8.0 && abs(q.z) < 8.0);
+    bool reborn = hash(vec3(fid, uB.w, 3.0)) < uC.y;
+    if (bad || reborn) { p = P0; spd = 0.0; }
+    float s = clamp(spd * uC.z, 0.0, 1.0);
+    vec3 col = mix(vec3(1.0), mix(uC1, uC2, s), uC.w);
+    P[id] = p;
+    Color[id] = vec4(col, 1.0);
 }

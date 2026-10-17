@@ -32,23 +32,15 @@ def pars(c, spec):
                 if 'max' in o: p.max = o['max']; p.normMax = o['max']; p.clampMax = o.get('clamp', False)
     return c
 
-PH = ("((parent().par.Phase if parent().par.Timesource=='phase' else absTime.seconds*parent().par.Speed/"
-      "(parent().par.Loopbeats*60.0/parent().par.Bpm if parent().par.Loopbeats>0 else parent().par.Loopseconds)) % 1.0)")
-PHU = PH.replace(" % 1.0)", ")")  # unwrapped (for rotation)
+PH = "((absTime.seconds*parent().par.Speed/12.0) % 1.0)"   # internal animation phase (no loop parameters)
+PHU = "(absTime.seconds*parent().par.Speed/12.0)"           # unwrapped (for rotation)
 
-LOOP_PAGE = [
-  ('m','Timesource','Time Source','abstime',{'menu':[('abstime','Abs Time'),('phase','Phase (external)')]}),
-  ('f','Phase','Phase',0.0,{'min':0,'max':1}),
-  ('f','Loopseconds','Loop Seconds',12.0,{'min':0.5,'max':120}),
-  ('f','Loopbeats','Loop Beats (0=use seconds)',0.0,{'min':0,'max':64}),
-  ('f','Bpm','BPM',120.0,{'min':20,'max':300}),
-  ('f','Speed','Speed',1.0,{'min':0,'max':4}),
-]
 PREVIEW_PAGE = [
+  ('f','Speed','Animation Speed',1.0,{'min':0,'max':4}),
   ('wh','Resolution','Resolution',[1280,720],{'min':16,'max':8192}),
   ('f','Exposure','Exposure',1.0,{'min':0,'max':4}),
   ('f','Bloom','Bloom',0.25,{'min':0,'max':2}),
-  ('i','Spinturns','Spin Turns / Loop',1,{'min':0,'max':8}),
+  ('i','Spinturns','Spin Turns / Cycle',1,{'min':0,'max':8}),
   ('f','Tilt','Knot Tilt',20.0,{'min':-90,'max':90}),
   ('f','Camdist','Camera Distance',7.0,{'min':3,'max':20}),
   ('f','Backdrop','Backdrop Brightness',1.0,{'min':0,'max':4}),
@@ -203,26 +195,18 @@ void main(){
 }
 '''
 # ---- end matB helpers ----
-# ---- v2: Clock CHOP, modulation In CHOP ----
-_OLD_PH = PH
-def _wrap(s):
-    ck = "parent().par.Clock.eval()"
-    return "(%s['phase'].eval() if (parent().par.Timesource=='phase' and %s) else %s)" % (ck, ck, s)
-PH = _wrap(_OLD_PH)
-if 'PHU' in globals(): PHU = _wrap(_OLD_PH.replace(" % 1.0)", ")"))
+# ---- modulation In CHOP ----
 def MOD(ch):
     """expression term: modulation channel (0 when the mod In CHOP is unconnected) * Modamount"""
     return "parent().op('mod')['%s'].eval()*parent().par.Modamount" % ch
 def add_modsetup(c, inname):
-    """Loop.Clock par, Material.Modamount par, optional modulation In CHOP -> merge over zero defaults -> Null 'mod'."""
-    lp = [p for p in c.customPages if p.name == 'Loop'][0]
-    lp.appendCHOP('Clock', label='Clock CHOP (phase)')
+    """Material.Modamount par, optional modulation In CHOP -> merge over zero defaults -> Null 'mod'."""
     mp = [p for p in c.customPages if p.name == 'Material'][0]
     q = mp.appendFloat('Modamount', label='Modulation Amount')[0]
     q.default = 1; q.val = 1; q.min = 0; q.max = 4; q.normMin = 0; q.normMax = 4
     i = c.create(td.inCHOP, inname)
     k = c.create(td.constantCHOP, 'mod_default')
-    names = ['band1', 'band2', 'band3', 'band4', 'beat', 'phase']
+    names = ['band1', 'band2', 'band3', 'band4', 'beat']
     k.seq.const.numBlocks = len(names)
     for n, nm in enumerate(names):
         getattr(k.par, 'const%dname' % n).val = nm
@@ -247,7 +231,6 @@ pars(c, {
   ('rgb','Glowtint','Glow Tint',[1,1,1],{'min':0,'max':2}),
  ] + ENV_PAR,
  'Preview': PREVIEW_PAGE,
- 'Loop': LOOP_PAGE,
 })
 add_modsetup(c, 'in1')
 pix = readf('_matB', 'common.glsl') + '\n' + readf(NAME, 'pixel.glsl')

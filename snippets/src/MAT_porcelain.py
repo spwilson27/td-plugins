@@ -93,9 +93,9 @@ def lfo_band(ex, name='lfo', freq=0.4, col=None, row=2, chan='band1'):
 
 def beat_mod(ex, name='beat', period=4, col=None, row=2):
     b = ex.create(td.beatCHOP, name, col=col, row=row)
-    b.par.ramp = True; b.par.pulse = True; b.par.period = period
+    b.par.ramp = False; b.par.pulse = True; b.par.period = period
     rn = ex.create(td.renameCHOP, name + '_rename', col=None if col is None else col + 1, row=row)
-    rn.par.renamefrom = 'ramp pulse'; rn.par.renameto = 'phase beat'; rn.inputConnectors[0].connect(b)
+    rn.par.renamefrom = 'pulse'; rn.par.renameto = 'beat'; rn.inputConnectors[0].connect(b)
     return rn
 
 def merge_mod(ex, *srcs, col=None, row=2):
@@ -138,7 +138,7 @@ out(ex, 2, g, col=8)
 
 # 3. modulation
 ex = example(s, 3, 'Beat-driven veins',
-  'An LFO (renamed band1) and a Beat CHOP (channels beat + phase) go into the optional modulation input (in1).\n'
+  'An LFO (renamed band1) and a Beat CHOP (channel beat) go into the optional modulation input (in1).\n'
   'band1 swells the vein amount, every beat pulse opens the cracks briefly. Modamount scales both.\n'
   'Replace the LFO with an Audio Spectrum CHOP bands renamed band1..band4 for audio reactive stone.')
 lf = lfo_band(ex, 'lfo', 0.35, col=0, row=2)

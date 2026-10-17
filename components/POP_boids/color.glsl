@@ -1,4 +1,4 @@
-// Per-instance colour from velocity. in0 = velocity. Output rgb colour, a = speed fraction.
+// Per-boid colour from velocity. in0 = velocity. Output rgb colour, a = speed fraction.
 out vec4 fragColor;
 uniform vec3 uColA, uColB;
 uniform float uMaxSpeed;

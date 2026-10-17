@@ -1,0 +1,1 @@
+{"inputs": {"in1": "mesh (POP)", "in2": "depth image"}, "outputs": {"out1": "points (POP)"}}

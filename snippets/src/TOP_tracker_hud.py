@@ -8,7 +8,7 @@ h = instance(ex, 'TOP_tracker_hud')
 h.inputConnectors[0].connect(src)
 out(ex, 1, h)
 
-ex = example(s, 2, 'Data-heavy recipe', 'White labels showing id and coordinates, a tight grid, more lines, bigger boxes, dimmed picture.\nGood for a cold surveillance look: raise Dim to see more of the image, Scanlines for CRT grain,\nRefresh re-picks the targets several times per loop.')
+ex = example(s, 2, 'Data-heavy recipe', 'White labels showing id and coordinates, a tight grid, more lines, bigger boxes, dimmed picture.\nGood for a cold surveillance look: raise Dim to see more of the image, Scanlines for CRT grain,\nRefresh re-picks the targets several times a second.')
 src = ex.create(moviefileinTOP, 'beans'); src.par.file.expr = sample_expr('Map/Jellybeans.1.jpg')
 h = instance(ex, 'TOP_tracker_hud')
 h.inputConnectors[0].connect(src)

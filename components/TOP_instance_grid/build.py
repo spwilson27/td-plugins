@@ -14,9 +14,10 @@ def new_comp(name):
 def mkdat(c, name, s):
     d = c.create(td.textDAT, name); d.text = s; return d
 
-def setres(o, w="op('res')['w']", h="op('res')['h']"):
+def setres(o, w=None, h=None):
+    pre = "op('../res')" if o.parent().name == 'demo' else "op('res')"
     o.par.outputresolution = 'custom'
-    o.par.resolutionw.expr = w; o.par.resolutionh.expr = h
+    o.par.resolutionw.expr = w or pre + "['w']"; o.par.resolutionh.expr = h or pre + "['h']"
 
 def glsl(c, name, code, inputs=(), vecs=(), fmt='rgba16float', res=False, filt=None):
     """vecs: list of (uniformName, [4 values/exprs]) ; exprs are strings evaluated in TD."""
@@ -111,28 +112,12 @@ COMMON = [
     ('Resolution', 'wh', (1280, 720)),
 ]
 
-# --- loop / clock ---
-LENEXPR = "max(0.25,(parent().par.Loopseconds if parent().par.Loopseconds>0 else parent().par.Loopbeats*60.0/max(1.0,parent().par.Bpm)))"
-EXTPH = "op('ph_ext')['phase']"            # phase from Clock CHOP (or Phase par if no Clock set)
-PEXPR = "((%s if parent().par.Timesource=='phase' else absTime.seconds/%s) %% 1.0)" % (EXTPH, LENEXPR)
-FREXPR = "max(2,2*round(%s*15))" % LENEXPR
+# --- animation: absTime only (makes the preview example move; there is no Loop page) ---
+PEXPR = "((absTime.seconds/8.0) % 1.0)"     # 0..1 over 8 s
+LENEXPR = "8"
+FREXPR = "240"
 def uP(extra=0):
-    return ('uP', [PEXPR, LENEXPR, FREXPR, extra])
-
-def loop_pars(c, beats=8, seconds=0):
-    """Loop page: Timesource, Phase, Clock (CHOP par), Loopbeats, Bpm, Loopseconds (0 = use beats)."""
-    pg = add_pars(c, [
-        ('Timesource', 'menu', [('abstime', 'Abs Time'), ('phase', 'Phase')], 0),
-        ('Phase', 'float', 0, 0, 1),
-        ('Loopbeats', 'float', beats, 1, 64),
-        ('Bpm', 'float', 120, 30, 300),
-        ('Loopseconds', 'float', seconds, 0, 120),
-    ], page='Loop')
-    pg.appendCHOP('Clock', label='Clock CHOP (reads its phase channel)')
-    k = c.create(td.constantCHOP, 'ph_ext'); k.par.name0 = 'phase'
-    k.par.value0.expr = ("(parent().par.Clock.eval()['phase'].eval() if (parent().par.Clock.eval() and "
-                         "parent().par.Clock.eval()['phase'] is not None) else parent().par.Phase)")
-    return pg
+    return ('uP', [PEXPR, 8, 240, extra])
 
 # --- resolution: Resolutionmode 'input' follows in1 (or Resolutionw/h when unconnected), 'custom' uses Resolutionw/h ---
 def res_chop(c):
@@ -142,19 +127,30 @@ def res_chop(c):
     k.par.name1 = 'h'; k.par.value1.expr = "(op('in1').height if (%s) else parent().par.Resolutionh)" % conn
     return k
 
+def new_demo(c):
+    """Base COMP 'demo': holds every preview-only source. Not selected (so not cooking) when in1 is connected."""
+    return c.create(td.baseCOMP, 'demo')
+
+def demo_out(d, top, name='demo_out'):
+    o = d.create(td.outTOP, name); o.inputConnectors[0].connect(top); return o
+
+HASIN = "1 if (len(parent().inputConnectors[0].connections)+0*absTime.frame) else 0"
+
 def v2_input(c, comp=None, srcfile='src.glsl', extra_vecs=()):
-    """in1 (In TOP) + animated default source -> Switch 'src' sized by 'res'. comp=None uses the shared signal source."""
+    """in1 (In TOP) + demo COMP (animated default source) -> Switch 'src' sized by 'res'."""
     res_chop(c)
     i = c.create(td.inTOP, 'in1')
+    d = new_demo(c)
     code = (rd(comp, srcfile) if comp else open(os.path.join(ROOT, 'components/_lib/signal_src.glsl')).read())
-    d = glsl(c, 'defsrc', code, vecs=[uP()] + list(extra_vecs), res=True)
+    g = glsl(d, 'defsrc', code, vecs=[uP()] + list(extra_vecs), res=True)
+    demo_out(d, g)
     sw = c.create(td.switchTOP, 'src')
-    sw.inputConnectors[0].connect(d); sw.inputConnectors[1].connect(i)
-    sw.par.index.expr = "1 if parent().inputConnectors[0].connections else 0"
+    sw.inputConnectors[0].connect(d.outputConnectors[0]); sw.inputConnectors[1].connect(i)
+    sw.par.index.expr = HASIN
     setres(sw); sw.par.format = 'rgba16float'
     return sw
 
-# --- optional modulation In CHOP (must be the LAST input). channels band1-4, beat, phase ---
+# --- optional modulation In CHOP (must be the LAST input). channels band1-4, beat ---
 def add_mod(c, name):
     """name e.g. 'in3'. Creates In CHOP + Null 'modin'. Use MOD('band1') in expressions."""
     i = c.create(td.inCHOP, name); n = c.create(td.nullCHOP, 'modin'); n.inputConnectors[0].connect(i)
@@ -221,12 +217,9 @@ add_pars(c, [
   ('Look','menu',[('original','Original'),('mono','Mono')],0),
   ('Accent','float',0.0,0,1),
 ], page='Look')
-loop_pars(c, beats=0, seconds=8)
 LOOKI = P + "Look.menuIndex"
-ISPH = "(1 if %sTimesource=='phase' else 0)" % P
 def ORBIT(sp='Orbitspeed', off='Orbitangle'):
-    S = P+sp; O = P+off
-    return "(%s + 6.283185307*%s*(0 if abs(%s)<1e-4 else (1 if %s>0 else -1)*max(1,round(abs(%s)*%s/6.283185))) if %sTimesource=='phase' else absTime.seconds*%s+%s)" % (O, EXTPH, S, S, S, LENEXPR, P, S, O)
+    return "(absTime.seconds*%s%s+%s%s)" % (P, sp, P, off)
 res_chop(c)
 i1 = c.create(td.inTOP, 'in1')
 def setu(g, items):
@@ -237,23 +230,15 @@ def setu(g, items):
             if isinstance(v, str): p.expr = v
             else: p.val = v
 add_mod(c, 'in2')
-nz = c.create(td.noiseTOP, 'default_noise')
+dm = new_demo(c)
+nz = dm.create(td.noiseTOP, 'default_noise')
 nz.par.outputresolution='custom'; nz.par.resolutionw=512; nz.par.resolutionh=512
 nz.par.mono = False; nz.par.period = 1.6; nz.par.amp = 0.55; nz.par.offset = 0.5; nz.par.harmon = 2
-nz.par.tz.expr = "absTime.seconds*"+P+"Noisespeed*3"
-# phase-periodic variant: 4D noise sampled on a circle in (tz, t4d)
-nz4 = c.create(td.noiseTOP, 'default_noise_loop')
-nz4.par.outputresolution='custom'; nz4.par.resolutionw=512; nz4.par.resolutionh=512
-nz4.par.type='perlin4d'
-nz4.par.mono = False; nz4.par.period = 1.6; nz4.par.amp = 0.55; nz4.par.offset = 0.5; nz4.par.harmon = 2
-RAD = "max(0.2,%sNoisespeed*3*%s/6.283185)" % (P, LENEXPR)
-nz4.par.tz.expr = RAD+"*math.cos(6.283185307*%s)" % PEXPR
-nz4.par.t4d.expr = RAD+"*math.sin(6.283185307*%s)" % PEXPR
-nsw = c.create(td.switchTOP, 'noise_mode'); nsw.inputConnectors[0].connect(nz); nsw.inputConnectors[1].connect(nz4)
-nsw.par.index.expr = ISPH
+nz.par.tz.expr = "absTime.seconds*parent(2).par.Noisespeed*3"
+demo_out(dm, nz)
 sw = c.create(td.switchTOP, 'src_switch')
-sw.inputConnectors[0].connect(nsw); sw.inputConnectors[1].connect(i1)
-sw.par.index.expr = "1 if parent().inputConnectors[0].connections else 0"
+sw.inputConnectors[0].connect(dm.outputConnectors[0]); sw.inputConnectors[1].connect(i1)
+sw.par.index.expr = HASIN
 rs = c.create(td.resolutionTOP, 'to_grid')
 rs.par.outputresolution='custom'; rs.par.resolutionw.expr=P+"Countx"; rs.par.resolutionh.expr=P+"County"
 rs.par.filtertype = 'linear' if 'linear' in rs.par.filtertype.menuNames else rs.par.filtertype.val

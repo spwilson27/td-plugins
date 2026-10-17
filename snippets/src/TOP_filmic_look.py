@@ -13,7 +13,7 @@ def media(ex, rel, name='media', col=None):
 
 def modsrc(ex, kind, chan='band1', freq=0.35, name=None, col=None):
     """A modulation CHOP for the component's last input: 'lfo' -> one 0-1 channel called `chan`;
-    'beat' -> channels `beat` (pulse) and `phase` (0-1 ramp) from a Beat CHOP."""
+    'beat' -> channel `beat` (pulse) from a Beat CHOP."""
     if kind == 'lfo':
         l = ex.create(td.lfoCHOP, name or 'lfo', col=col, row=1)
         l.par.frequency = freq; l.par.amp = 0.5; l.par.offset = 0.5
@@ -21,9 +21,9 @@ def modsrc(ex, kind, chan='band1', freq=0.35, name=None, col=None):
         r.inputConnectors[0].connect(l); r.par.renamefrom = 'chan1'; r.par.renameto = chan
         return r
     b = ex.create(td.beatCHOP, name or 'beat', col=col, row=1)
-    b.par.pulse = True; b.par.ramp = True
-    r = ex.create(td.renameCHOP, 'as_beat_phase', col=col + 1, row=1)
-    r.inputConnectors[0].connect(b); r.par.renamefrom = 'pulse ramp'; r.par.renameto = 'beat phase'
+    b.par.pulse = True; b.par.ramp = False
+    r = ex.create(td.renameCHOP, 'as_beat', col=col + 1, row=1)
+    r.inputConnectors[0].connect(b); r.par.renamefrom = 'pulse'; r.par.renameto = 'beat'
     return r
 
 
@@ -39,7 +39,7 @@ s = begin('TOP_filmic_look')
 
 ex = example(s, 1, 'Filmic grade on footage',
     'Movie -> TOP_filmic_look -> example1: bloom, glare streaks, chromatic aberration, ACES tonemap, grain and vignette.\nExposure (stops) pushes more of the image into bloom; Tonemap picks the shoulder.\nEverything is subtle by default; compare with Bypass on.')
-m = media(ex, 'Map/Nature/Movie.1.mp4', col=0)
+m = media(ex, 'Map/Banana.tif', col=0)
 f = instance(ex, 'TOP_filmic_look', col=1)
 f.par.Bloomamount = 1.2; f.par.Chromatic = 1.5; f.par.Vignette = 0.6; f.par.Exposure = 0.5
 connect(m, f); out(ex, 1, f, col=2)

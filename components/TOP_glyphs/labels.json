@@ -1,0 +1,1 @@
+{"inputs": {"in1": "image", "in2": "modulation CHOP"}, "outputs": {"out1": "glyph image", "out2": "glyph index field"}}

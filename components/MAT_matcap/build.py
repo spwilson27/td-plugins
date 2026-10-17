@@ -84,7 +84,7 @@ def input_stage(c, comp, bg=1.0):
     d = glsl(c, 'defsrc', rd(comp, 'src.glsl'), vecs=[('uTime', ['absTime.seconds', 0, 0, 0]), ('uBg', [bg, 0, 0, 0])], res=True)
     sw = c.create(td.switchTOP, 'src')
     sw.inputConnectors[0].connect(d); sw.inputConnectors[1].connect(i)
-    sw.par.index.expr = "1 if parent().inputConnectors[0].connections else 0"
+    sw.par.index.expr = "1 if (len(parent().inputConnectors[0].connections)+0*absTime.frame) else 0"
     setres(sw)
     sw.par.format = 'rgba16float'
     return sw
@@ -100,17 +100,7 @@ def report(c):
         for k, s in (('err', o.errors()), ('warn', o.warnings()), ('script', o.scriptErrors())):
             if s: print(k, o.path, s[:300])
 
-# ---- loop helper (matl) ----
-def add_loop(c):
-    pg = c.appendCustomPage('Loop')
-    p = pg.appendMenu('Timesource')[0]; p.menuNames = ['abstime', 'phase']; p.menuLabels = ['Absolute time', 'Phase (loop)']
-    p.default = 'abstime'; p.val = 'abstime'
-    p = pg.appendFloat('Phase')[0]; p.default = 0; p.val = 0; p.min = 0; p.max = 1; p.normMin = 0; p.normMax = 1
-    p = pg.appendFloat('Loopseconds')[0]; p.default = 8; p.val = 8; p.min = 0.1; p.max = 120; p.normMin = 0.1; p.normMax = 60; p.clampMin = True
-    p = pg.appendInt('Loopbeats')[0]; p.default = 0; p.val = 0; p.min = 0; p.max = 128; p.normMin = 0; p.normMax = 32; p.clampMin = True
-    p = pg.appendFloat('Bpm')[0]; p.default = 120; p.val = 120; p.min = 20; p.max = 300; p.normMin = 20; p.normMax = 300
-PH = ("(parent().par.Phase if parent().par.Timesource=='phase' else absTime.seconds/"
-      "(parent().par.Loopseconds if parent().par.Loopbeats==0 else parent().par.Loopbeats*60.0/parent().par.Bpm))")
+PH = "(absTime.seconds/8.0)"   # internal preview animation phase (no loop parameters)
 def P(n): return 'parent().par.' + n
 
 # ---- matC helpers ----
@@ -193,26 +183,18 @@ def preview(c, mat, cam_z=5.6):
 def mat_geo_note():
     pass
 
-# ---- v2: Clock CHOP, modulation In CHOP ----
-_OLD_PH = PH
-def _wrap(s):
-    ck = "parent().par.Clock.eval()"
-    return "(%s['phase'].eval() if (parent().par.Timesource=='phase' and %s) else %s)" % (ck, ck, s)
-PH = _wrap(_OLD_PH)
-if 'PHU' in globals(): PHU = _wrap(_OLD_PH.replace(" % 1.0)", ")"))
+# ---- modulation In CHOP ----
 def MOD(ch):
     """expression term: modulation channel (0 when the mod In CHOP is unconnected) * Modamount"""
     return "parent().op('mod')['%s'].eval()*parent().par.Modamount" % ch
 def add_modsetup(c, inname):
-    """Loop.Clock par, Material.Modamount par, optional modulation In CHOP -> merge over zero defaults -> Null 'mod'."""
-    lp = [p for p in c.customPages if p.name == 'Loop'][0]
-    lp.appendCHOP('Clock', label='Clock CHOP (phase)')
+    """Material.Modamount par, optional modulation In CHOP -> merge over zero defaults -> Null 'mod'."""
     mp = [p for p in c.customPages if p.name == 'Material'][0]
     q = mp.appendFloat('Modamount', label='Modulation Amount')[0]
     q.default = 1; q.val = 1; q.min = 0; q.max = 4; q.normMin = 0; q.normMax = 4
     i = c.create(td.inCHOP, inname)
     k = c.create(td.constantCHOP, 'mod_default')
-    names = ['band1', 'band2', 'band3', 'band4', 'beat', 'phase']
+    names = ['band1', 'band2', 'band3', 'band4', 'beat']
     k.seq.const.numBlocks = len(names)
     for n, nm in enumerate(names):
         getattr(k.par, 'const%dname' % n).val = nm
@@ -222,7 +204,6 @@ def add_modsetup(c, inname):
     z = c.create(td.nullCHOP, 'mod'); z.inputConnectors[0].connect(m)
 
 COMP = 'MAT_matcap'; c = new_comp(COMP)
-add_loop(c)
 names = ['clay','chrome','pearl','toon','jade','gold','bone','blackglass','custom']
 labels = ['Clay','Chrome','Pearl','Toon','Jade','Gold','Bone','Black glass','Custom (in1)']
 add_pars(c, [
@@ -241,7 +222,7 @@ atlas.seq.vec.numBlocks = 1; atlas.par.vec0name = 'uIdx'; atlas.par.vec0valuex =
 atlas.par.outputresolution = 'custom'; atlas.par.resolutionw = 1024; atlas.par.resolutionh = 512; atlas.par.format = 'rgba16float'
 sw = c.create(td.switchTOP, 'matcap_sel')
 sw.inputConnectors[0].connect(gen); sw.inputConnectors[1].connect(inp)
-sw.par.index.expr = "1 if (parent().par.Matcap=='custom' and parent().inputConnectors[0].connections) else 0"
+sw.par.index.expr = "1 if (parent().par.Matcap=='custom' and (len(parent().inputConnectors[0].connections)+0*absTime.frame)) else 0"
 mcout = c.create(td.nullTOP, 'matcap_out'); mcout.inputConnectors[0].connect(sw)
 mcout.par.filtertype = 'linear' if 'linear' in mcout.par.filtertype.menuNames else mcout.par.filtertype.eval()
 

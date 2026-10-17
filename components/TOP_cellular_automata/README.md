@@ -1,41 +1,31 @@
-# GEN_cellular_automata
-Ping-pong (Feedback TOP + GLSL TOP) cellular automaton on a float state texture (r=state, g=age, b=ghost fade). The grid is `Resolution / Cellsize`; `out1` is the nearest-neighbour colored render at `Resolution`, `out2` is the raw state texture (r = state: 0/1 life, 0/1/2 brain, 0-3 wireworld).
+# TOP_cellular_automata
 
-Input: optional `in1` TOP, used as seed (luminance > 0.5 = alive/conductor) at Reset/first frame. Unconnected -> random seed with Density.
+A cellular automaton driven by an image. Bright pixels of `in1` seed live cells (and, with `Inject`, keep spawning new ones while the sim runs). The cells take the colours of the picture beneath them and are composited over the input. Without an input, a built-in animated demo image drives it.
 
-| Par | Meaning |
+Ping-pong (Feedback TOP + GLSL TOP) simulation on a float state texture (r = state, g = age, b = ghost fade). The grid is `Resolution / Cellsize`.
+
+## Inputs
+| In | Label | Notes |
+|---|---|---|
+| in1 | image | seeds and feeds the automaton (luminance vs `Threshold`) |
+| in2 | modulation CHOP | optional, last input: `band1` scales `Inject` (x1..x3), `beat` adds a burst of cells |
+
+## Outputs
+| Out | Label |
 |---|---|
-| Rule | Game of Life / Brian's Brain / Wireworld / Larger than Life / Custom B/S |
-| Rulestring | for Custom: `B36/S23`, also accepts `23/3` (S/B). Parsed in Python (`rules` DAT) into bitmasks passed as uniforms when the par changes |
-| Radius | LtL neighbourhood radius (Moore square, 1-15). Birth/survive ranges are fractions of the neighbourhood on the Sim page (default = "Bugs"-like) |
-| Density | random seed density (LtL likes ~0.5; Wireworld = conductor density) |
-| Stepsperframe | extra GLSL passes per cook |
-| Rate | max steps per second (60 = every frame) |
-| Play / Reset | |
-| Cellsize | pixels per cell |
-| Coloring | flat / by age (young -> old color), Agerange, Ghost, Ghostdecay (fading afterimage of dead cells) |
-| Color* | Dead, Alive(young), Old/Tail, Aux (Brian dying / Wireworld conductor) |
-| Resolution, Seed | |
+| out1 | cells over input (Mix / Bypass applied) |
+| out2 | raw cell state (r: 0/1 life, 0/1/2 brain, 0-3 wireworld; g: age; b: ghost) at grid resolution |
 
-Wireworld colors: head = Alive, tail = Old, conductor = Aux. Brian: on = Alive->Old (age), dying = Aux.
+## Parameters
+Controls: `Mix` (dry input vs result), `Bypass`, `Resolutionmode` (input|custom) + `Resolutionw/h`, `Rule` (Life / Brian's Brain / Wireworld / Larger than Life / Custom B/S), `Rulestring` (`B36/S23` or `23/3`), `Play`, `Rate`, `Stepsperframe`, `Reset` (restart: reseeds from the current input).
 
-## Loop page and Look (retrofit)
+Input: `Threshold` (luminance that counts as a seed), `Invert` (seed from dark), `Density` (fraction of bright pixels that become cells at Reset; Wireworld: conductors fill the whole mask), `Inject` (per-step probability that bright input pixels spawn a cell; 0 = seed only), `Seed`.
 
-**Look** (Controls): `Original` (default, unchanged) or `Mono` (Rendah style: black background, bone-white/grey; implemented as a final `look` GLSL TOP in front of `out1`, no duplicated network). `Accent` adds a red accent in Mono; `Monogain` sets the mono brightness.
+Render: `Cellsize`, `Coloring` (input colours / by age / flat), `Backdrop` (how much of the input shows behind dead cells), `Vivid`, `Cellgap`, `Agerange`, `Ghost` and `Ghostdecay` (fading afterimage), Dead/Alive/Old/Aux colours (age and flat modes; Aux = Brian dying / Wireworld conductor).
 
-**Loop** page: `Timesource` (`abstime` = free-running, loops every `Loopseconds`/`Loopbeats` at `Bpm`; `phase` = driven by the `Phase` par 0-1, e.g. from a timeline or LFO). `Loopreset` toggle pulses `Reset` each time the phase wraps.
+Sim: `Radius` and birth/survive ranges for Larger than Life.
 
-**Honest note on looping:** this is a stateful simulation, so the output is NOT a bit-exact loop. Everything that *forces* the sim is a periodic function of Phase (so the forcing repeats exactly), and with `Loopreset` on the sim restarts from its initial state at each wrap, so a recorded loop restarts identically. Without `Loopreset` the state keeps evolving and only the forcing is periodic. Periodic forcing: new `Loopinject` (Sim page, default 0) injects live cells inside a small disc (`Injectradius`) orbiting the grid once per loop.
+Wireworld: input mask = conductors with a few electron heads; Inject fires heads on conductors.
 
-## v2 update
-
-Renamed from `cellular_automata` to `GEN_cellular_automata` (tox at `tox/GEN/GEN_cellular_automata.tox`; no per-frame keepalive: outputs are pulled by downstream ops).
-
-**Inputs**: in1 (TOP, optional seed), in2 (CHOP, optional modulation). The modulation In CHOP is always the last input and reads channels `band1`-`band4`, `beat`, `phase`; missing channels are ignored. Used here: beat: injects live cells (0.4 density).
-
-| Output | Label |
-|---|---|
-| out1 | render |
-| out2 | state |
-
-**Loop page**: new `Clock` CHOP parameter. With `Timesource` = `phase` the phase is read from the `phase` channel of that CHOP (instead of `Phase`). Snippets: `snippets/GEN_cellular_automata.tox` (About > Snippets).
+## Notes
+The sim only reseeds on Reset or on first cook; after changing the input, press Reset. No Loop page: the demo animates with absTime and cooks only when `in1` is unconnected.

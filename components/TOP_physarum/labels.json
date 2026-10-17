@@ -1,0 +1,1 @@
+{"inputs": {"in1": "image (attractor map)", "in2": "modulation CHOP"}, "outputs": {"out1": "trails + image", "out2": "raw trail map"}}

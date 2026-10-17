@@ -1,6 +1,5 @@
 // in0 = Texture 3D TOP ring buffer (rolling cache, newest = last slice), in1 = displacement map (2D, sampled as sTD2DInputs[0] since in0 is 3D)
 uniform vec4 uA; // x frames (depth)  y mode  z direction (+1/-1)  w scroll phase (speed*time)
-uniform vec4 uC; // x isPhase
 uniform vec4 uB; // x ring size N  y current absolute frame  z noise time  w smooth (0/1)
 out vec4 fragColor;
 float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
@@ -19,7 +18,6 @@ void main(){
   else if(mode==2) d=clamp(length(uv-.5)*1.4142,0.,1.);
   else if(mode==3){ vec2 p=uv*vec2(uTDOutputInfo.res.z/uTDOutputInfo.res.w,1.)*2.5; float t=uB.z;
     vec2 o1=vec2(t,0.), o2=vec2(0.,-t*1.3), o3=vec2(t*.7);
-    if(uC.x>.5){ o1=1.2*vec2(cos(t),sin(t)); o2=1.2*vec2(cos(2.*t),sin(2.*t)); o3=1.2*vec2(cos(t),-sin(t)); }   // circular offsets -> periodic
     d=vn(p+o1)*.55+vn(p*2.+o2+7.)*.3+vn(p*4.+o3+13.)*.15; d=clamp((d-.2)*1.6,0.,1.); }
   else { vec3 m=texture(sTD2DInputs[0],uv).rgb; d=dot(m,vec3(.299,.587,.114)); }
   if(uA.z<0.) d=1.-d;

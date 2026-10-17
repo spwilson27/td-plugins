@@ -10,8 +10,7 @@ uniform float uWrap;         // 1 wrap, 0 bounce
 uniform float uObsOn, uObsR;
 uniform vec3  uObsPos;
 uniform float uWander;
-uniform float uTime;   // loop phase * uWK (wander keyframes advance with phase)
-uniform float uWK;     // wander keyframes per loop (integer) -> noise is periodic
+uniform float uTime;   // wander clock (seconds * rate)
 
 vec3 hash3(vec3 p){
     p = fract(p * vec3(.1031, .1030, .0973));
@@ -49,8 +48,8 @@ void main(){
     if (na > 0.0) acc += uAliW * (ali / na - v);
     if (nc > 0.0) acc += uCohW * (coh / nc);
     // gentle wander so flocks keep turning
-    vec3 w = hash3(vec3(float(me), mod(floor(uTime), uWK), 3.1)) * 2.0 - 1.0;
-    vec3 w2 = hash3(vec3(float(me), mod(floor(uTime)+1.0, uWK), 3.1)) * 2.0 - 1.0;
+    vec3 w = hash3(vec3(float(me), floor(uTime), 3.1)) * 2.0 - 1.0;
+    vec3 w2 = hash3(vec3(float(me), floor(uTime)+1.0, 3.1)) * 2.0 - 1.0;
     acc += uWander * mix(w, w2, smoothstep(0.0, 1.0, fract(uTime)));
 
     // obstacle (sphere) avoidance

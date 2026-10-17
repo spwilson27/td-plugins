@@ -15,9 +15,8 @@ void main(){
   vec4 prev=texture(sTD2DInputs[1],uv);
   if(uC.y<.5){ fragColor=TDOutputSwizzle(prev); return; }
   float G=uG.x, seed=uG.y*13.37;
-  // phase mode: tb runs 0..K (K integer glitch ticks per loop) so the event sequence repeats exactly
   float tb=uG.z*uG.w;
-  float beat=(uC.z>.5 ? mod(floor(tb),max(uC.w,1.)) : floor(tb))+seed;
+  float beat=floor(tb)+seed;
   float ph=fract(tb);
   float env=1.-smoothstep(0.,.6,ph);          // decays after each beat
   vec2 w=uv;                                  // warped lookup
@@ -41,7 +40,7 @@ void main(){
     float r=hash21(vec2(row,beat));
     if(r>1.-ta*.35) w.x+=(hash21(vec2(row,beat+9.))-.5)*ta*.5;
     // wide rolling tear band
-    float by=fract(beat*.37+tb*(uC.z>.5 ? max(1.,floor(uC.w*.1+.5))/max(uC.w,1.) : .1));
+    float by=fract(beat*.37+tb*.1);
     float inb=step(abs(uv.y-by),.02+.05*ta);
     w.x+=inb*ta*.15*sin(uv.y*400.+beat);
   }

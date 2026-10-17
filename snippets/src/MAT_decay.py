@@ -93,9 +93,9 @@ def lfo_band(ex, name='lfo', freq=0.4, col=None, row=2, chan='band1'):
 
 def beat_mod(ex, name='beat', period=4, col=None, row=2):
     b = ex.create(td.beatCHOP, name, col=col, row=row)
-    b.par.ramp = True; b.par.pulse = True; b.par.period = period
+    b.par.ramp = False; b.par.pulse = True; b.par.period = period
     rn = ex.create(td.renameCHOP, name + '_rename', col=None if col is None else col + 1, row=row)
-    rn.par.renamefrom = 'ramp pulse'; rn.par.renameto = 'phase beat'; rn.inputConnectors[0].connect(b)
+    rn.par.renamefrom = 'pulse'; rn.par.renameto = 'beat'; rn.inputConnectors[0].connect(b)
     return rn
 
 def merge_mod(ex, *srcs, col=None, row=2):
@@ -136,15 +136,14 @@ c.par.Rustdarkr = 0.03; c.par.Rustdarkg = 0.14; c.par.Rustdarkb = 0.12
 g = scene(ex, [dict(comp=a, shape='teapot', x=-2.4, scale=0.85), dict(comp=b, shape='teapot', x=0, scale=0.85), dict(comp=c, shape='teapot', x=2.4, scale=0.85)], cam_z=7.4, col0=3)
 out(ex, 2, g)
 
-ex = example(s, 3, 'Beat Clock ages the object',
-  'A Beat CHOP (renamed: ramp -> phase, pulse -> beat) is merged with an LFO (band1) and fed to the modulation input.\n'
-  'Clock = that CHOP and Timesource=phase: Decaymode=animate runs 0 -> 1 -> 0 (clean to rusted to clean) exactly once per loop (Loopbeats=0 and phase = 4 beats).\n'
+ex = example(s, 3, 'Beat-driven rust',
+  'A Beat CHOP (pulse renamed beat) is merged with an LFO (band1) and fed to the modulation input.\n'
+  'Decaymode=animate runs the object from clean to rusted and back by itself (Speed scales it).\n'
   'band1 pushes extra decay on top, Modamount scales it. Set Decaymode=manual and use band1 alone for audio-driven rust.')
 bt = beat_mod(ex, 'beat', 4, col=0, row=2)
 lf = lfo_band(ex, 'lfo', 0.5, col=2, row=2)
 mg = merge_mod(ex, lf, bt, col=4, row=2)
-p = inst(ex, N, col=0, row=0, Timesource='phase', Modamount=0.3)
-p.par.Clock = mg.name
+p = inst(ex, N, col=0, row=0, Modamount=0.3)
 connect(mg, p)
 g = scene(ex, [dict(comp=p, shape='teapot', scale=1.1)], cam_z=3.8, via_render=True)
 out(ex, 3, g)

@@ -1,0 +1,1 @@
+{"description": "SDF converter (lossy): a GLSL MAT that raymarches an SDF wire inside proxy box geometry and writes depth, so it composites with Render TOP scenes. Use Apply To like the MAT_ components.", "version": "1.0.0"}

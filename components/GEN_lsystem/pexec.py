@@ -1,14 +1,8 @@
-WATCH = ('Axiom', 'Rule1', 'Rule2', 'Rule3', 'Iterations', 'Angle', 'Lengthscale', 'Heading', 'Preset', 'Regenerate')
-def _go(par):
-    c = parent()
-    if c.fetch('lsys_busy', False): return
-    m = op('lsys_expand').module
-    if par.name == 'Preset' and str(par.eval()) != 'custom':
-        m.apply_preset(c, str(par.eval()))
-    m.expand(c)
-
 def onValueChange(par, prev):
-    _go(par)
+    # selecting a preset overwrites the Lsystem page; the segment table (Script DAT) then re-cooks by itself
+    c = parent()
+    if par.name == 'Preset' and str(par.eval()) != 'custom':
+        op('lsys_expand').module.apply_preset(c, str(par.eval()))
 
 def onPulse(par):
-    _go(par)
+    op('segs').cook(force=True)

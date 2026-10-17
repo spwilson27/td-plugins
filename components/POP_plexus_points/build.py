@@ -84,7 +84,7 @@ def input_stage(c, comp, bg=1.0):
     d = glsl(c, 'defsrc', rd(comp, 'src.glsl'), vecs=[('uTime', ['absTime.seconds', 0, 0, 0]), ('uBg', [bg, 0, 0, 0])], res=True)
     sw = c.create(td.switchTOP, 'src')
     sw.inputConnectors[0].connect(d); sw.inputConnectors[1].connect(i)
-    sw.par.index.expr = "1 if parent().inputConnectors[0].connections else 0"
+    sw.par.index.expr = "1 if (len(parent().inputConnectors[0].connections)+0*absTime.frame) else 0"
     setres(sw)
     sw.par.format = 'rgba16float'
     return sw
@@ -101,42 +101,11 @@ def report(c):
         for k, s in (('err', o.errors()), ('warn', o.warnings()), ('script', o.scriptErrors())):
             if s: print(k, o.path, s[:300])
 
-# ---- loop helpers (batch 2) ----
-def loop_page(c, seconds=8.0, beats=16):
-    pg = c.appendCustomPage('Loop')
-    p = pg.appendMenu('Timesource')[0]
-    p.menuNames = ['abstime', 'phase']; p.menuLabels = ['Absolute Time', 'Phase (external)']
-    p.default = 'abstime'; p.val = 'abstime'
-    pg.appendCHOP('Clock')
-    p = pg.appendFloat('Phase')[0]; p.min = 0; p.max = 1; p.normMin = 0; p.normMax = 1; p.default = 0; p.val = 0
-    p = pg.appendFloat('Loopseconds')[0]; p.min = 0.5; p.max = 120; p.normMin = 1; p.normMax = 60; p.default = seconds; p.val = seconds
-    p = pg.appendInt('Loopbeats')[0]; p.min = 1; p.max = 256; p.normMin = 1; p.normMax = 64; p.default = beats; p.val = beats
-    p = pg.appendFloat('Bpm')[0]; p.min = 20; p.max = 300; p.normMin = 60; p.normMax = 200; p.default = 120; p.val = 120
-    p = pg.appendToggle('Usebeats')[0]; p.default = False; p.val = False
-    return pg
-
-def make_clock(c):
-    """constant CHOP 'clock': len (loop seconds), ph (0-1 phase), t (seconds, = ph*len in phase mode)"""
-    k = c.create(td.constantCHOP, 'clock')
-    P = 'parent().par.'
-    PHS = "(float(parent().par.Clock.eval()['phase']) if parent().par.Clock.eval() else parent().par.Phase)"
-    L = "((%sLoopbeats*60.0/%sBpm) if %sUsebeats else %sLoopseconds)" % (P, P, P, P)
-    exprs = [('len', L),
-             ('ph', "((absTime.seconds/%s)%%1.0) if %sTimesource=='abstime' else %s" % (L, P, PHS)),
-             ('t', "absTime.seconds if %sTimesource=='abstime' else %s*%s" % (P, PHS, L))]
-    k.par.name0 = 'len'; k.par.value0.expr = exprs[0][1]
-    k.par.name1 = 'ph'; k.par.value1.expr = exprs[1][1]
-    k.par.name2 = 't'; k.par.value2.expr = exprs[2][1]
-    return k
-CLK_PH = "op('clock')['ph']"
-CLK_T = "op('clock')['t']"
-
 COMP = 'POP_plexus_points'
 name = COMP
 c = new_comp(name)
 add_pars(c, [
- ('Resolution','wh',(1280,720)),
- ('Source','menu',[('blob','Head-ish Blob'),('sphere','Sphere'),('torus','Torus'),('image','Image luma (in2 TOP)'),('pop','Input POP (in1)')],4),
+ ('Source','menu',[('shape','Input POP (in1; demo shape if unconnected)'),('image','Image luma (in2 TOP)')],0),
  ('Points','int',2500,100,12000),
  ('Linkdistance','float',0.16,0.02,0.8),
  ('Maxlinks','int',3,1,8),
@@ -159,6 +128,8 @@ add_pars(c, [
  ('Imgdepth','float',0.8,0,3),
 ])
 add_pars(c, [
+ ('Resolution','wh',(1280,720)),
+ ('Demoshape','menu',[('blob','Head-ish blob'),('sphere','Sphere'),('torus','Torus')],0),
  ('Camdist','float',7.6,2,20),
  ('Camheight','float',0.5,-4,6),
  ('Orbitturns','int',1,0,4),
@@ -167,38 +138,47 @@ add_pars(c, [
  ('Grid','float',0.28,0,2),
  ('Gridsize','float',0.09,0.02,0.4),
  ('Glow','float',0.35,0,2),
-], page='Render')
-loop_page(c, 16.0, 32)
-clk = make_clock(c)
+], page='Preview')
 P = 'parent().par.'
-PH = CLK_PH
+PH = "(absTime.seconds/16.0)"      # internal preview animation (no loop parameters)
 ang = "2*math.pi*"+PH
 
 # inputs
 inpop = c.create(td.inPOP, 'in1'); inpop.par.connectorder = 1
 intop = c.create(td.inTOP, 'in2'); intop.par.connectorder = 2
-dn = c.create(td.noiseTOP, 'default_img')
+
+# ---- demo COMP: preview-only sources (demo shape, demo image); not selected when inputs are connected
+demo = c.create(td.baseCOMP, 'demo')
+PP = 'parent(2).par.'
+dn = demo.create(td.noiseTOP, 'default_img')
 dn.par.outputresolution = 'custom'; dn.par.resolutionw = 512; dn.par.resolutionh = 512
 dn.par.period = 0.35; dn.par.harmon = 3; dn.par.amp = 0.55; dn.par.offset = 0.4
-dn.par.tz.expr = "0.5*math.cos(%s)" % ang; dn.par.ty.expr = "0.5*math.sin(%s)" % ang
-rp = c.create(td.rampTOP, 'default_vig'); rp.par.type = 'radial'
+dn.par.tz.expr = "0.5*math.cos(2*math.pi*absTime.seconds/16.0)"; dn.par.ty.expr = "0.5*math.sin(2*math.pi*absTime.seconds/16.0)"
+rp = demo.create(td.rampTOP, 'default_vig'); rp.par.type = 'radial'
 rp.par.outputresolution = 'custom'; rp.par.resolutionw = 512; rp.par.resolutionh = 512
-dcmp = c.create(td.compositeTOP, 'default_comp'); dcmp.par.operand = 'multiply'
+dcmp = demo.create(td.compositeTOP, 'default_comp'); dcmp.par.operand = 'multiply'
 dcmp.inputConnectors[0].connect(dn); dcmp.inputConnectors[1].connect(rp)
-isw = c.create(td.switchTOP, 'img_switch'); isw.inputConnectors[0].connect(dcmp); isw.inputConnectors[1].connect(intop)
-isw.par.index.expr = "1 if parent().inputConnectors[1].connections else 0"
+dimg = demo.create(td.outTOP, 'out2'); dimg.inputConnectors[0].connect(dcmp)
+sp = demo.create(td.spherePOP, 'src_sphere'); sp.par.type = 'geodesic'; sp.par.surftype = 'triangles'
+sp.par.radx = 1; sp.par.rady = 1; sp.par.radz = 1
+sp.par.freq.expr = "max(2, int(math.sqrt(%sPoints/10.0)))" % PP
+tr = demo.create(td.torusPOP, 'src_torus'); tr.par.surftype = 'triangles'; tr.par.radx = 0.9; tr.par.rady = 0.38
+tr.par.cols.expr = "int(math.sqrt(%sPoints*2.4))" % PP; tr.par.rows.expr = "int(math.sqrt(%sPoints/2.4))" % PP
+dsw = demo.create(td.switchPOP, 'shape'); dsw.inputConnectors[0].connect(sp); dsw.inputConnectors[1].connect(tr)
+dsw.par.index.expr = "1 if %sDemoshape=='torus' else 0" % PP
+dshape = demo.create(td.outPOP, 'out1'); dshape.inputConnectors[0].connect(dsw)
+
+# image source for Source = Image: black unless in2 connected, else the demo image
+none = c.create(td.constantTOP, 'img_none'); none.par.outputresolution = 'custom'; none.par.resolutionw = 16; none.par.resolutionh = 16
+isw = c.create(td.switchTOP, 'img_switch'); isw.inputConnectors[0].connect(none); isw.inputConnectors[1].connect(intop); isw.inputConnectors[2].connect(demo.outputConnectors[1])
+isw.par.index.expr = "0 if parent().par.Source!='image' else (1 if (len(parent().inputConnectors[1].connections)+0*absTime.frame) else 2)"
 
 # sources
-sp = c.create(td.spherePOP, 'src_sphere'); sp.par.type = 'geodesic'; sp.par.surftype = 'triangles'
-sp.par.radx = 1; sp.par.rady = 1; sp.par.radz = 1
-sp.par.freq.expr = "max(2, int(math.sqrt(%sPoints/10.0)))" % P
-tr = c.create(td.torusPOP, 'src_torus'); tr.par.surftype = 'triangles'; tr.par.radx = 0.9; tr.par.rady = 0.38
-tr.par.cols.expr = "int(math.sqrt(%sPoints*2.4))" % P; tr.par.rows.expr = "int(math.sqrt(%sPoints/2.4))" % P
 gr = c.create(td.gridPOP, 'src_grid'); gr.par.surftype = 'triangles'; gr.par.sizex = 2; gr.par.sizey = 2
 gr.par.cols.expr = "int(math.sqrt(%sPoints*5))" % P; gr.par.rows.expr = "int(math.sqrt(%sPoints*5))" % P
 sw = c.create(td.switchPOP, 'src_switch')
-sw.inputConnectors[0].connect(sp); sw.inputConnectors[1].connect(tr); sw.inputConnectors[2].connect(gr); sw.inputConnectors[3].connect(inpop)
-sw.par.index.expr = "{'blob':0,'sphere':0,'torus':1,'image':2,'pop':(3 if parent().inputConnectors[0].connections else 0)}[%sSource.eval()]" % P
+sw.inputConnectors[0].connect(demo.outputConnectors[0]); sw.inputConnectors[1].connect(inpop); sw.inputConnectors[2].connect(gr)
+sw.par.index.expr = "2 if parent().par.Source=='image' else (1 if (len(parent().inputConnectors[0].connections)+0*absTime.frame) else 0)"
 
 # cloud shader
 camx = "math.sin(%s*%sOrbitturns)*%sOrbitrange" % (ang, P, P)
@@ -213,7 +193,7 @@ g.par.attr2name = 'custom'; g.par.attr2customname = 'Keep'
 g.par.sampler0name = 'uTex'; g.par.sampler0top = isw
 g.seq.vec.numBlocks = 5
 vecs = [('uA',[P+'Bands', P+'Banding', P+'Bandshift', P+'Bandsteps']),
-        ('uB',[ang, P+'Scale', "{'blob':0,'sphere':1,'torus':2,'image':3,'pop':(4 if parent().inputConnectors[0].connections else 0)}[%sSource.eval()]" % P, P+'Imgdepth']),
+        ('uB',[ang, P+'Scale', "3 if parent().par.Source=='image' else (4 if (len(parent().inputConnectors[0].connections)+0*absTime.frame) else {'blob':0,'sphere':1,'torus':2}[parent().par.Demoshape.eval()])", P+'Imgdepth']),
         ('uC',[P+'Threshold', P+'Imgsamples', P+'Pointsize', P+'Jitter']),
         ('uD',[camx, "0.12", camz, P+'Brightness']),
         ('uE',[P+'Sweep', P+'Sweepcycles', 0, 0])]
@@ -226,7 +206,7 @@ for i,(n2,vals) in enumerate(vecs):
         else: p.val = v
 dl = c.create(td.deletePOP, 'drop'); dl.inputConnectors[0].connect(g)
 dl.par.entity = 'point'; dl.par.attr0inattr = 'Keep'; dl.par.attr0func = 'lt'; dl.par.attr0value = 0.5; dl.par.invert = 'delete'
-cloud = c.create(td.nullPOP, 'cloud_pts'); cloud.inputConnectors[0].connect(dl)
+cloud = c.create(td.nullPOP, 'out1'); cloud.comment = 'point cloud'; cloud.inputConnectors[0].connect(dl)
 dots = c.create(td.convertPOP, 'dots'); dots.par.convert = 'topointprims'; dots.inputConnectors[0].connect(cloud)
 px = c.create(td.proximityPOP, 'plexus'); px.inputConnectors[0].connect(cloud)
 px.par.maxdist.expr = P+'Linkdistance'; px.par.maxlinesperpoint.expr = P+'Maxlinks'; px.par.output = 'lines'
@@ -246,6 +226,7 @@ cp.par.dotemplatetranslate = False; cp.par.doattr = True; cp.par.templateattr0na
 lcode = mkdat(c, 'long_code', rd(name, 'long.glsl'))
 lg = c.create(td.glslPOP, 'longlines'); lg.inputConnectors[0].connect(cp)
 lg.par.computedat = lcode; lg.par.outputattrs = 'P'; lg.par.attr0name = 'color'
+out3 = c.create(td.nullPOP, 'out3'); out3.comment = 'long lines'; out3.inputConnectors[0].connect(lg)
 lg.seq.vec.numBlocks = 2
 for i,(n2,vals) in enumerate([('uA',[ang, P+'Longspread', 1, P+'Bandsteps']), ('uB',[P+'Longopacity', P+'Sweepcycles', 0, 0])]):
     getattr(lg.par,'vec%dname'%i).val = n2; getattr(lg.par,'vec%dtype'%i).val = 'vec4'
@@ -286,6 +267,6 @@ bl = c.create(td.blurTOP, 'glow_blur'); bl.inputConnectors[0].connect(cm0); bl.p
 lv = c.create(td.levelTOP, 'glow_gain'); lv.inputConnectors[0].connect(bl); lv.par.brightness1.expr = P+'Glow*2.0'
 cm = c.create(td.compositeTOP, 'comp'); cm.par.operand = 'add'
 cm.inputConnectors[0].connect(cm0); cm.inputConnectors[1].connect(lv)
-o = c.create(td.nullTOP, 'out1'); o.comment = 'render'; o.inputConnectors[0].connect(cm)
+o = c.create(td.nullTOP, 'preview'); o.comment = 'preview render'; o.inputConnectors[0].connect(cm)
 finish(c, name)
 report(c)

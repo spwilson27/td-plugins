@@ -1,0 +1,2 @@
+{"inputs": {"in1": "image", "in2": "modulation CHOP"},
+ "outputs": {"out1": "stylised image", "out2": "A/B chemical field"}}

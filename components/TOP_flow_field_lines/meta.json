@@ -1,0 +1,1 @@
+{"description": "Long-exposure strokes advected along a field derived from the input image (edge contours, gradient, luminance or hue angle), coloured by the image. out2 = the field (direction in RG, strength in B).", "version": "3.0.0"}

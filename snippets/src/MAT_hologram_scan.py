@@ -93,9 +93,9 @@ def lfo_band(ex, name='lfo', freq=0.4, col=None, row=2, chan='band1'):
 
 def beat_mod(ex, name='beat', period=4, col=None, row=2):
     b = ex.create(td.beatCHOP, name, col=col, row=row)
-    b.par.ramp = True; b.par.pulse = True; b.par.period = period
+    b.par.ramp = False; b.par.pulse = True; b.par.period = period
     rn = ex.create(td.renameCHOP, name + '_rename', col=None if col is None else col + 1, row=row)
-    rn.par.renamefrom = 'ramp pulse'; rn.par.renameto = 'phase beat'; rn.inputConnectors[0].connect(b)
+    rn.par.renamefrom = 'pulse'; rn.par.renameto = 'beat'; rn.inputConnectors[0].connect(b)
     return rn
 
 def merge_mod(ex, *srcs, col=None, row=2):
@@ -118,7 +118,7 @@ s = begin(N)
 ex = example(s, 1, 'Hologram teapot',
   'Wire lattice with a fresnel glow, scan sweeps and blocky dropout. Additive, no depth write, so it layers like a projection.\n'
   'Drag your Geometry COMP (or a Render TOP) onto the material\'s Apply To field.\n'
-  'Try: Colornear / Colorfar for the depth fade, Scansweeps (bands per loop), Dropamount for glitchy dropout.')
+  'Try: Colornear / Colorfar for the depth fade, Scansweeps (bands per cycle), Dropamount for glitchy dropout.')
 p = inst(ex, N, col=0, row=0)
 g = scene(ex, [dict(comp=p, shape='teapot')], cam_z=3.8, expo=1.0)
 out(ex, 1, g)

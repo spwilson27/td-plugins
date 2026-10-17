@@ -30,10 +30,10 @@ Resolution: `Resolutionmode` = `input` follows in1 when connected, otherwise `Re
 | Modamount | strength of mod CHOP on sizes |
 | Mix / Bypass / Resolutionmode / Resolution | common TOP controls |
 
-## Loop page
-`Timesource` (abstime / phase), `Phase`, `Clock` (CHOP; phase from its `phase` channel when Timesource=phase), `Loopseconds`, `Loopbeats`, `Bpm`. In `phase` mode timecode = `Phase*Loopseconds` and the random-number tick index is `floor(Phase * round(Tickrate*Loopseconds))`, so the whole overlay is periodic and loops at Phase 0 == 1 (the REC dot blinks at 1 Hz; use an even Loopseconds for a clean blink loop).
-
 ## Notes
 * TD cannot select a Menlo Bold face, so bold is faux-bold (three copies offset about 2% of the font size).
 * Text is flat colour: over very bright footage add your own darkening underneath.
 * The title can be edited in the parameter field with `\n` for new lines, or pasted with real line breaks.
+
+## Demo source
+The built-in preview source lives in a `demo` Base COMP behind a Switch: it is selected only while `in1` is unconnected, so with an input connected it does not cook. There is no Loop page; animation uses absolute time and only exists to make the unconnected preview move.

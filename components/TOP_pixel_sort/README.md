@@ -19,11 +19,10 @@ Sorting is an iterative odd-even transposition sort: a Feedback TOP holds the st
 | Refresh | per-frame pull toward source |
 | Bytebeat, Bandsize, Bandholdframes | bit-corruption amount / band height / frames each band pattern persists |
 | Shuffle, Seed | channel shuffle amount / pattern seed |
-| Loopfade | hard-refresh state at P=0 and fade the sorted result in/out |
 | Active, Reset | freeze sort / re-seed state from source |
 | Modamount | strength of the modulation input |
 | Mix, Bypass | dry/wet against in1; Bypass passes in1 straight through |
 | Resolutionmode (input/custom), Resolution | follow in1 or use Resolutionw/h |
-| Loop: Timesource, Phase, Clock, Loopbeats, Bpm, Loopseconds | phase source; the Clock CHOP's `phase` channel is used when Timesource = phase |
 
-**Loop:** sorting is stateful, so seamlessness comes from restarting: at P=0 the state is reset to the source and the sorted result fades in then out so P 0==1 shows the clean source. Needs a periodic source (default is). Disable Loopfade for continuous behaviour with live video.
+## Demo source
+The built-in preview source lives in a `demo` Base COMP behind a Switch: it is selected only while `in1` is unconnected, so with an input connected it does not cook. There is no Loop page; animation uses absolute time and only exists to make the unconnected preview move.

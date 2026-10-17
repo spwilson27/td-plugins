@@ -1,0 +1,1 @@
+{"description": "SDF converter (lossy): bake an SDF wire into a 3D texture TOP (R = distance, GBA = color) over chosen bounds and resolution.", "version": "1.0.0"}

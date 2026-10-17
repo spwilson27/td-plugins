@@ -1,0 +1,9 @@
+#SDF 1
+@node fx0 sphere
+@vals
+0.6 0 0 0
+0.8 0.8 0.8 0
+@code
+vec4 sdf_fx0(vec3 p){ return vec4(length(p) - P_fx0_0.x, P_fx0_1.xyz); }
+@end
+@scene fx0

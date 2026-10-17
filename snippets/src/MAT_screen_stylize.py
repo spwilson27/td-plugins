@@ -93,9 +93,9 @@ def lfo_band(ex, name='lfo', freq=0.4, col=None, row=2, chan='band1'):
 
 def beat_mod(ex, name='beat', period=4, col=None, row=2):
     b = ex.create(td.beatCHOP, name, col=col, row=row)
-    b.par.ramp = True; b.par.pulse = True; b.par.period = period
+    b.par.ramp = False; b.par.pulse = True; b.par.period = period
     rn = ex.create(td.renameCHOP, name + '_rename', col=None if col is None else col + 1, row=row)
-    rn.par.renamefrom = 'ramp pulse'; rn.par.renameto = 'phase beat'; rn.inputConnectors[0].connect(b)
+    rn.par.renamefrom = 'pulse'; rn.par.renameto = 'beat'; rn.inputConnectors[0].connect(b)
     return rn
 
 def merge_mod(ex, *srcs, col=None, row=2):
@@ -135,7 +135,7 @@ out(ex, 2, g)
 
 ex = example(s, 3, 'Cell size breathes with the music',
   'An LFO named band2 goes into the modulation input; Cellsize is multiplied by max(0.4, 1 - band2*0.5*Modamount), band1 would add Contrast.\n'
-  'Spinlight makes the light orbit once per loop (integer turns loop seamlessly). Replace the LFO with an Audio Spectrum band renamed band2.')
+  'Spinlight makes the light orbit (Spinlight = turns per preview cycle). Replace the LFO with an Audio Spectrum band renamed band2.')
 lf = lfo_band(ex, 'lfo', 0.3, col=0, row=2, chan='band2')
 p = inst(ex, N, col=0, row=0, Mode='halftone', Cellsize=12.0, Spinlight=1, Modamount=1.5)
 connect(lf, p)

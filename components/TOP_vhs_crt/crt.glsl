@@ -1,5 +1,5 @@
 // CRT display pass. in0 = tape output.
-uniform vec4 uP;   // phase, loop sec, frames/loop
+uniform vec4 uP;   // time in 8 s units (unwrapped), 8, 240 (30 hash frames/s)
 uniform vec4 uA;   // x curvature, y scanlines strength, z mask strength, w glow
 uniform vec4 uB;   // x vignette, y flicker, z interlace, w scan line count
 uniform vec4 uC;   // x crt on, y amount

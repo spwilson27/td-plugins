@@ -1,0 +1,10 @@
+{
+ "inputs": {
+  "in1": "image",
+  "in2": "depth/driver map",
+  "in3": "modulation CHOP"
+ },
+ "outputs": {
+  "out1": "result"
+ }
+}

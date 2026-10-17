@@ -1,0 +1,1 @@
+{"inputs": {"in1": "points (POP)", "in2": "image (luma)"}, "outputs": {"out1": "point cloud (POP)", "out2": "plexus lines (POP)", "out3": "long lines (POP)"}}

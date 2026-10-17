@@ -1,62 +1,77 @@
 exec(open(__import__('os').path.expanduser('~/software/td-plugins/snippets/src/_snip.py')).read())
 
-def inst(ex, name):
-    # keep the parameter values set in this snippet when the external tox reloads
-    c = instance(ex, name)
-    c.par.reloadcustom = False; c.par.reloadbuiltin = False
-    return c
 
-def beat_mod(ex, bpm=120):
-    """Beat CHOP -> Rename to the library's modulation channels: beat (pulse), band1 (smooth 0..1 wave)."""
-    bt = ex.create(td.beatCHOP, 'beat', col=0, row=1); bt.par.pulse = True; bt.par.sine = True; bt.par.ramp = False; bt.par.bpm = bpm
-    rn = ex.create(td.renameCHOP, 'modnames', col=1, row=1); rn.inputConnectors[0].connect(bt)
-    rn.par.renamefrom = 'pulse sine'; rn.par.renameto = 'beat band1'
-    return rn
+def media(ex, rel, name='media', col=None):
+    """Movie / image from the TouchDesigner Samples folder (path resolved at load time)."""
+    m = ex.create(td.moviefileinTOP, name, col=col)
+    m.par.file.expr = sample_expr(rel)
+    if not rel.lower().endswith(('.tif', '.jpg', '.png')):
+        m.par.play = True
+    return m
 
-def phase_clock(ex, hz=0.125):
-    """Ramp LFO renamed to `phase`: a stand-in for a timeline / master clock (0..1 per loop)."""
-    l = ex.create(td.lfoCHOP, 'clock_lfo', col=0, row=2); l.par.wavetype = 'ramp'; l.par.frequency = hz
-    l.par.amp = 1; l.par.offset = 0
-    rn = ex.create(td.renameCHOP, 'clock_phase', col=1, row=2); rn.inputConnectors[0].connect(l)
-    rn.par.renamefrom = 'chan1'; rn.par.renameto = 'phase'
-    return rn
 
-def text_mask(ex, txt='TD', size=0.5):
-    t = ex.create(td.textTOP, 'mask'); t.par.text = txt
-    t.par.outputresolution = 'custom'; t.par.resolutionw = 1280; t.par.resolutionh = 720
-    t.par.fontsizex = 380; t.par.fontsizey = 380
-    t.par.bgcolorr = t.par.bgcolorg = t.par.bgcolorb = 0; t.par.bgalpha = 1
-    t.par.fontcolorr = t.par.fontcolorg = t.par.fontcolorb = 1
-    return t
-s = begin('GEN_reaction_diffusion')
+def rd(ex, col=1, row=0, w=960, h=540):
+    r = instance(ex, 'TOP_reaction_diffusion', col=col, row=row)
+    r.par.reloadcustom = False; r.par.reloadbuiltin = False
+    r.par.Resolutionmode = 'custom'; r.par.Resolutionw = w; r.par.Resolutionh = h
+    r.par.Steps = 60; r.par.Sprinkle = 1.0
+    return r
 
-ex = example(s, 1, 'Coral growth',
-  'Gray-Scott reaction-diffusion with the coral preset: random seeds grow into branching fingers.\n'
-  'Try the Preset menu (mitosis, labyrinth, spots, worms; it sets Feed and Kill) or nudge them\n'
-  'by 0.002 at a time - the interesting patterns live in a very thin band.')
-r = inst(ex, 'GEN_reaction_diffusion')
-r.par.Resolutionw = 960; r.par.Resolutionh = 540
-out(ex, 1, r)
 
-ex = example(s, 2, 'Seed from a shape',
-  'A white-on-black Text TOP into in1: bright pixels seed chemical B when the sim resets, so the\n'
-  'pattern grows out of the letters. Press Reset to re-seed. Labyrinth makes a maze that fills the\n'
-  'space; Mono look gives the black / bone-white poster feel.')
-t = text_mask(ex)
-r = inst(ex, 'GEN_reaction_diffusion')
-r.par.Resolutionw = 960; r.par.Resolutionh = 540
-r.par.Preset = 'labyrinth'; r.par.Feed = 0.029; r.par.Kill = 0.057; r.par.Look = 'mono'
-r.inputConnectors[0].connect(t)
-out(ex, 2, r)
+s = begin('TOP_reaction_diffusion')
 
-ex = example(s, 3, 'Breathing feed on a clock',
-  'Loopmod makes Feed and Kill wobble by +/-15% around their preset values, locked to the Clock\n'
-  'CHOP (ramp LFO renamed "phase", Timesource = phase), while band1 from the Beat CHOP (last input)\n'
-  'adds a pulse of extra feed. Mitosis cells split and merge rhythmically.')
-r = inst(ex, 'GEN_reaction_diffusion')
-r.par.Resolutionw = 960; r.par.Resolutionh = 540
-r.par.Preset = 'mitosis'; r.par.Feed = 0.0367; r.par.Kill = 0.0649; r.par.Steps = 30; r.par.Loopmod = 0.15; r.par.Timesource = 'phase'
-rn = beat_mod(ex); ck = phase_clock(ex)
-r.inputConnectors[1].connect(rn); r.par.Clock = ck
-out(ex, 3, r)
+ex = example(s, 1, 'Pattern grown on a photo',
+    'Banana.tif -> TOP_reaction_diffusion -> example1. The image seeds chemical B when the sim resets and its luminance\n'
+    'shifts Feed and Kill, so the pattern changes character with the picture (maze in dark areas, nothing in bright ones).\n'
+    'Try Colormode (tint / multiply / emboss / warp), Feedmod / Killmod (how strongly the image steers it) and Reset.')
+m = media(ex, 'Map/Banana.tif', col=0)
+r = rd(ex)
+r.par.Preset = 'labyrinth'; r.par.Feedmod = 0.6; r.par.Killmod = 0.3
+r.par.Colormode = 'tint'; r.par.Strength = 2.0
+connect(m, r); out(ex, 1, r, col=2)
+
+ex = example(s, 2, 'out2 as a mask',
+    'out2 is the raw chemical field (R = A, G = B). Here a GLSL TOP uses B as a mask to reveal a second picture\n'
+    '(Butterfly1.tif) only inside the pattern, over the Banana. The field stays in sync with out1, so any\n'
+    'Over / Multiply / Matte network can use it the same way. Set Colormode to field to see the raw mask.')
+m = media(ex, 'Map/Banana.tif', col=0)
+b = media(ex, 'Map/Butterfly1.tif', name='butterfly', col=0, )
+r = rd(ex)
+r.par.Preset = 'labyrinth'; r.par.Feedmod = 0.6; r.par.Killmod = 0.3
+r.par.Colormode = 'field'
+connect(m, r)
+code = ex.create(td.textDAT, 'mask_code', col=1, row=2)
+code.text = ('out vec4 fragColor;\n'
+             'void main(){\n'
+             '  vec2 uv = vUV.st;\n'
+             '  float mask = smoothstep(0.08, 0.3, texture(sTD2DInputs[1], uv).g);\n'
+             '  vec3 a = texture(sTD2DInputs[0], uv).rgb;\n'
+             '  vec3 b = texture(sTD2DInputs[2], uv).rgb;\n'
+             '  fragColor = TDOutputSwizzle(vec4(mix(a, b, mask), 1.0));\n'
+             '}\n')
+g = ex.create(td.glslTOP, 'reveal', col=3)
+g.par.pixeldat = code
+g.par.outputresolution = 'custom'; g.par.resolutionw = 960; g.par.resolutionh = 540
+connect(m, g, 0, 0); connect(r, g, 1, 1); connect(b, g, 0, 2)
+# out2 of the instance feeds input 1 (the field), butterfly is input 2
+g.inputConnectors[1].connect(r.outputConnectors[1])
+out(ex, 2, g, col=4)
+
+ex = example(s, 3, 'Movie injection and displacement',
+    'Continuous injection: with Inject > 0 bright parts of the moving image keep seeding B, so the pattern trails the\n'
+    'movie. out2 (A in red, B in green) drives a Displace TOP on a butterfly picture (midpoints 1 and 0), a lens that follows\n'
+    'the cells. An LFO named band1 on the last input pushes Feed (+0.01 at full) so the pattern breathes.')
+m = media(ex, 'Map/Count.mov', col=0)
+r = rd(ex)
+r.par.Inject = 0.35; r.par.Colormode = 'tint'; r.par.Strength = 0.8; r.par.Preset = 'mitosis'; r.par.Feedmod = 1.0; r.par.Killmod = 0.5
+connect(m, r)
+l = ex.create(td.lfoCHOP, 'lfo', col=0, row=1); l.par.frequency = 0.2; l.par.amp = 0.5; l.par.offset = 0.5
+rn = ex.create(td.renameCHOP, 'as_band1', col=1, row=1); rn.inputConnectors[0].connect(l); rn.par.renamefrom = 'chan1'; rn.par.renameto = 'band1'
+r.inputConnectors[1].connect(rn)
+d = ex.create(td.displaceTOP, 'displace', col=3)
+d.par.horzsource = 'red'; d.par.vertsource = 'green'; d.par.midpointx = 1.0; d.par.midpointy = 0.0
+d.par.displaceweightx = 0.1; d.par.displaceweighty = 0.1; d.par.extend = 'hold'
+pic = media(ex, 'Map/Butterfly1.tif', name='butterfly', col=0)
+connect(pic, d, 0, 0); d.inputConnectors[1].connect(r.outputConnectors[1])
+out(ex, 3, d, col=4)
 finish(s)

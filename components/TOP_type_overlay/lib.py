@@ -3,17 +3,6 @@ import random, math
 
 def _c(): return parent()
 
-def loop_seconds():
-    p = _c().par
-    return max(0.25, p.Loopseconds.eval() if p.Loopseconds.eval() > 0 else p.Loopbeats.eval() * 60.0 / max(1.0, p.Bpm.eval()))
-
-def phase_now():
-    """0-1 loop phase: Phase par / Clock CHOP (via ph_ext) in phase mode, else absTime over the loop length"""
-    p = _c().par
-    if p.Timesource.eval() == 'phase':
-        return float(op('ph_ext')['phase'].eval()) % 1.0
-    return (absTime.seconds / loop_seconds()) % 1.0
-
 def W(): return int(op('res')['w'].eval())
 def H(): return int(op('res')['h'].eval())
 
@@ -22,18 +11,11 @@ def mod(ch):
     return float(m[ch].eval()) if (m and m.numChans and m[ch] is not None) else 0.0
 
 def seconds():
-    p = _c().par
-    if p.Timesource.eval() == 'phase':
-        return phase_now() * loop_seconds()
     return absTime.seconds
 
 def tick(salt=0):
-    """integer tick index, periodic over one loop (so phase mode loops seamlessly)"""
-    p = _c().par
-    L = loop_seconds()
-    n = max(1, int(round(p.Tickrate.eval() * L)))
-    ph = phase_now()
-    return int(ph * n) % n
+    """integer tick index at Tickrate ticks per second"""
+    return int(absTime.seconds * _c().par.Tickrate.eval())
 
 def timecode():
     fps = max(1, _c().par.Fps.eval())
@@ -83,7 +65,7 @@ def bl():
 
 def br():
     p = _c().par
-    return 'PHASE %.3f\nLOOP %.2fs\nIDX %03d' % (phase_now(), loop_seconds(), tick())
+    return 'T %.2fs\nRATE %.1f/s\nIDX %05d' % (absTime.seconds, p.Tickrate.eval(), tick() % 100000)
 
 # ---- layout presets: (x, y, alignx, aligny) in 0..1 fractions (margin added via m) ----
 LAYOUTS = ['rendah', 'center', 'poster', 'minimal', 'data']

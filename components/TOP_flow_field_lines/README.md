@@ -1,36 +1,25 @@
-# GEN_flow_field_lines
-(Library name `GEN_flow_field_lines`, formerly `flow_field_lines`. Shipped as `tox/GEN/GEN_flow_field_lines.tox`.)
+# TOP_flow_field_lines
+Long-exposure flow strokes driven by the input image. Particles (a float state texture in a feedback loop) are advected along a field computed from `in1`, drawn as short instanced segments coloured by the image into an accumulation buffer with exponential fade, then composited with the input. Without an input a built-in animated demo image is used (gated `demo` COMP, does not cook when `in1` is connected).
 
 ## Inputs
-| Input | Type / purpose |
+| Input | Purpose |
 |---|---|
-| in1 | In TOP (optional): luminance steers the flow angle |
+| in1 | image (field and colour source) |
+| in2 | modulation CHOP (optional, last): band1 -> Speed, band2 -> Turbulence, band3 -> Intensity, band4 -> Line Width, beat -> kicks Rotate by 60 degrees |
 
 ## Outputs
-| Output | Label / content |
+| Output | Content |
 |---|---|
-| out1 | lines: the accumulated stroke image (rgba16float) |
+| out1 | strokes composited with the input (per Compose, Mix, Bypass) |
+| out2 | flow field: RG = direction * 0.5 + 0.5, B = field strength (0-1) |
 
-## Loop / Clock
-`Clock` (Loop page) takes a CHOP with a `phase` channel (0-1). Set it and `Timesource` = `phase`: the `Phase` parameter is then driven by that channel (clear `Clock` to go back to manual `Phase`). Use a ramp LFO renamed `phase`, or a Beat CHOP ramp renamed `phase`, to lock motion to a tempo.
+## Parameters
+- **Controls**: Mix, Bypass, Resolutionmode (input / custom), Play, Reset (clears particles and exposure), Speed, Compose (over input / add / on background), Inputdim (input brightness under strokes in "over"), Bgcolor.
+- **Render**: Resolutionw/h (custom mode).
+- **Field**: Fieldmode (contour = perpendicular to luminance gradient, gradient, angle from luminance, angle from hue), Inputamt (image influence), Smooth (gradient radius px), Rotate (degrees), Fieldscale / Fieldspeed (curl noise), Turbulence (noise blended in; also guides particles through flat areas), Speedbymag.
+- **Strokes**: Count, Stepsize, Lifetime, Linewidth, Trail, Intensity, Exposure, Fade (closer to 1 = longer exposure), Colormode (input image / direction / age / line colour), Saturation, Linecolor.
 
-Long-exposure flow field strokes. A float state texture (`state`, feedback loop) holds particle position/age; the velocity comes from curl or angle Perlin noise (or luminance of `in1`). Each particle is drawn as a short instanced segment into an accumulation feedback buffer (`accum`) with exponential fade.
-- **Controls**: Resolution, Active, Reset (pulse; clears particles and canvas), Speed, Count, Fieldscale, Fieldspeed, Fieldtype, Turbulence, Stepsize, Lifetime, Fade, Inputamt.
-- **Render**: Linewidth, Trail (segment length in steps), Intensity, Exposure, Colormode (line colour / direction / age / per particle), Linecolor, Hue, Bgcolor.
-- Sims are pulled by whatever is downstream of `out1` (no keepalive DAT; the Alwayscook toggle was removed in v2).
+The field follows the live input every frame; Reset restarts the particles and the exposure buffer.
 
-## Loop & Look (batch-2 retrofit)
-
-### Loop page
-| Param | Meaning |
-|---|---|
-| Timesource | `abstime` (free-running, original behaviour) or `phase` (motion is a function of `Phase`) |
-| Phase | 0-1 loop phase, drive externally (LFO / timeline / beat clock) in `phase` mode |
-| Loopseconds | loop length used when Timesource=abstime-derived clocks are needed (default 8 s) |
-| Loopbeats / Bpm | if Loopbeats > 0 the loop length is Loopbeats*60/Bpm seconds instead of Loopseconds |
-`Loopreset` (toggle): when on, resets the feedback state at each loop wrap.
-
-**How the loop works:** STATEFUL (particle trails accumulate in feedback). In phase mode the *field* is periodic (4D noise on a circle, period = 1 loop) but the accumulated lines carry history, so frames at phase 0 and 1 are similar in structure, not pixel-identical. Turn on `Loopreset` to clear the particle/accum feedback when the loop wraps for a hard, repeatable loop (at the cost of a regrow at each loop start). Mono lowers line intensity (Monogain via gain constants in inst.glsl).
-
-### Look page
-`Look` = `Original` (default, unchanged) or `Mono` (black background, bone-white / grey, rendah style). `Accent` (0-1) adds red accents in Mono (a fraction of particles are red (Accent*15%)).
+## Limitations
+Particles spawn uniformly at random (not weighted by the image); flat areas rely on Turbulence to move; very large Count is GPU heavy.

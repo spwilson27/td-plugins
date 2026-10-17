@@ -1,0 +1,1 @@
+{"description": "Voronoi cells / cracked & stained glass coloured by sampling the input image at each cell site; density can follow luminance or edges. out2 = cell id colour with edge distance in alpha", "version": "1.0.0"}

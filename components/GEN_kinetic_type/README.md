@@ -1,34 +1,40 @@
 # GEN_kinetic_type
-(Library name `GEN_kinetic_type`, formerly `kinetic_type`. Shipped as `tox/GEN/GEN_kinetic_type.tox`.)
+Shipped as `tox/GEN/GEN_kinetic_type.tox`. Lays a text string out as one POP point per glyph and animates each glyph with kinetic motion. It outputs geometry (POP), not a render; the node viewer shows an internal `preview` render.
 
 ## Inputs
-| Input | Type / purpose |
+| Input | Purpose |
 |---|---|
-| (none) | No inputs, self-contained generator (Text parameter sets the word) |
+| in1 | modulation CHOP (optional): `band1`-`band4`, `beat`. band1 boosts motion Amount, band2 boosts slit Stretch, beat fires a scatter kick. |
 
 ## Outputs
-| Output | Label / content |
+| Output | Content |
 |---|---|
-| out1 | render: kinetic type (rgba16float) |
+| out1 | glyph instances (POP): one point per glyph (times Layers in Extrude mode) |
+| out2 | text mesh (POP): plain Text POP of the string (Text, Fontname), unanimated |
 
-## Loop / Clock
-`Clock` (Loop page) takes a CHOP with a `phase` channel (0-1). Set it and `Timesource` = `phase`: the `Phase` parameter is then driven by that channel (clear `Clock` to go back to manual `Phase`). Use a ramp LFO renamed `phase`, or a Beat CHOP ramp renamed `phase`, to lock motion to a tempo.
+### out1 point attributes
+| Attribute | Meaning |
+|---|---|
+| `P` | glyph position (laid out along X, centred, plus motion) |
+| `rotation` | vec3 Euler degrees |
+| `scale` | vec3 (x, y, 1) |
+| `glyph` | glyph index in the string (0..N-1, spaces included) |
+| `layer` | layer index (0 except in Extrude mode) |
+| `Color` | Tint, blended to Accent for accent glyphs, with brightness |
+| `uvrect` | vec4: atlas offset xy and scale zw (slit mode squeezes it); use to texture a quad with a glyph atlas |
 
+Instance a quad or box on out1 with a Geometry COMP (instance op = out1, `P(0..2)`, `rotation(0..2)`, `scale(0..2)`, `Color(0..3)`, texture coords `uvrect`).
 
-Text laid out as one instanced quad per glyph in 3D (monospace Text TOP atlas, per-instance UV offset/scale), rendered additively in monochrome with optional red accent glyphs. Own Camera + Render TOP. No inputs needed.
-
-**Output**: `out1` render (black background).
-
+## Parameters
 | Page | Param | Notes |
 |---|---|---|
-| Controls | Text | string, rendered monospace (up to ~130 chars) |
+| Controls | Text | the string |
 | | Mode | Scatter on beat / Slit stretch / Noise warp / Extrude (depth stack) |
-| | Trigger | pulse: scatter burst (decays with Beat Decay) |
-| | Autobeat, Beatsperloop | automatic beats, N per loop |
+| | Speed | motion speed (absTime based, preview/motion only) |
+| | Trigger | pulse: scatter burst (decays with Decay) |
+| | Autobeat, Beatspercycle | automatic beats, N per 8 s cycle at Speed 1 |
 | | Amount, Decay, Stretch, Layers, Depth | mode strengths; Layers/Depth for extrude |
-| Render | Fontname, Size, Spacing, Tint, Accent, Accentamt, Seed | |
-| Camera | Sway, Fit, Fov, Elevation | camera auto-fits text width |
-| Loop | Timesource (abstime/phase), Phase, Clock, Loopseconds, Loopbeats, Bpm | |
+| | Fontname, Size, Spacing, Seed | |
+| Look | Tint, Accent, Accentamt | glyph colours (Color attribute) |
 
-Loop: every motion is a function of loop phase p (p = Phase in `phase` mode, absTime*Speed/looplength otherwise). Scatter uses fract(p*Beatsperloop) (integer beats), slit uses cos(2 pi p), noise warp is a sum of sin() with integer multiples of 2 pi p, extrude/camera use sin/cos(2 pi p). So Phase 0 == 1. The manual Trigger is wall-clock based (not part of the loop).
-Limitation: layers are alpha-additive quads (no real mesh extrusion); one line of text.
+Limitations: glyph pitch is a fixed monospace grid (out2's font advance may differ slightly); one line of text; the preview uses an atlas quad per glyph (no real extrusion).

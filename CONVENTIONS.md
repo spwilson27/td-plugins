@@ -84,7 +84,29 @@ Machine-checked by `tools/validate.py` (component) and `tools/validate_snippet.p
 - **Constant OP-path parameters are not updated when an op is renamed by script.** Components that hand out references to their internals must re-apply on rename (OP Execute DAT `onNameChange`/`onPathChange`).
 
 ## SDF section
-(Owned by the SDF_ family; documented by its author.) The SDF wire format, how parameters reach the shader without recompiling, `tools/fixtures/SDF_input.txt` (what validation feeds an SDF input), and how `SDF_render` / converters consume it.
-- **Switch gating must re-evaluate:** an index expression like `len(parent().inputConnectors[0].connections)` is not re-evaluated when a wire is plugged in later. Use `len(parent().inputConnectors[0].connections) + 0*absTime.frame` (validation connects inputs seconds after load and fails if `demo` keeps cooking).
-- **Names starting with `out`** are turned into outputs by `conform.py`; don't name internal ops `out*`.
-- **Validation test sources must be siblings** of the component: TouchDesigner silently refuses to wire a component input from inside another COMP.
+(Owned by the SDF_ family.) SDF_ components are nodes that pass signed distance fields to each other like POPs. Primitives (`SDF_sphere/box/torus/plane/gyroid/fractal`) have no input, operations (`SDF_combine/transform/repeat/deform`) have one or two, `SDF_render` renders, and `SDF_to_TOP/POP/MAT` convert (lossy) to native TouchDesigner types.
+
+**Wire = a DAT.** Every SDF_ node outputs (`out1`, an Out DAT) a text DAT in "SDF wire v1". It always contains the complete scene up to that node (upstream records first), so the last DAT of a chain is a self-contained scene:
+
+```
+#SDF 1
+@node n123 sphere          # one record per node: unique id (n<op id>), free-form kind
+@vals                      # the node's parameters, one vec4 per line (these animate)
+0.7 0 0 0
+0.85 0.85 0.85 0
+@code                      # GLSL for the node; vec4 sdf_<id>(vec3 p) = (distance, albedo.rgb)
+vec4 sdf_n123(vec3 p){ return vec4(length(p) - P_n123_0.x, P_n123_1.xyz); }
+@end
+@scene n123                # id of the final node; the scene function is sdf_<id>
+```
+- Node code references its own parameter vec4s as `P_<id>_<k>` (k = line in `@vals`) and its upstream scenes by the upstream function names (`sdf_<upstream id>`). Any helper function must be uniquely named (suffix with the id).
+- Fan-in (SDF_combine) merges the records of both inputs; records are de-duplicated by id. Unconnected inputs use a built-in default (a sphere for A, a box for B), so every node works standalone.
+- A consumer (SDF_render, converters, node previews) assembles the shader from the payload: `uniform vec4 uSdf[128]` (`MAXV` = 128 vec4s per scene), a `#define P_<id>_<k> uSdf[<global index>]` per value, the node functions in order, and `vec4 sdScene(vec3 p)`. A Script DAT writes the shader text **only when it changes**; a Script DAT + DAT to CHOP turns the `@vals` into the uniform array (channels r,g,b,a x 128 samples, GLSL TOP/MAT array `uSdf`, type vec4). Consequence: **animating parameters never recompiles anything**; the shader recompiles only when the graph structure changes (nodes, menu modes). Each node's Script DAT re-cooks when its parameters or input change, so animation flows through the chain.
+  - Why not a parameter texture / graph walk: the payload is self-describing text, so it also works from plain Text DATs (the validation fixture), a DAT you write by hand, or another tool; no walking of upstream operators.
+  - 3D GLSL TOPs (`SDF_to_TOP`, `SDF_to_POP`) pass uSdf as an array type `texturebuffer` (`uniform samplerBuffer uSdf`, `P_` macros use `texelFetch`) because plain uniform arrays are only applied to some slices of 3D GLSL TOPs. `sdflib.assemble(text, tb=True)`.
+- Shared code: every SDF_ component carries `sdflib.py` (inside a Text DAT `sdflib`: parse/emit, `build_node`, `assemble`, camera helper), `lib.glsl` (raymarch / normal / soft shadow / AO / lighting) and `preview.glsl`, copied into its folder. Keep these identical across components (regenerate all when changing).
+- `tools/fixtures/SDF_input.txt` is a minimal valid wire (one sphere, node id `fx0`, default values); validation feeds it to every SDF input via a Text DAT.
+- Previews: every SDF_ node has an internal `preview` TOP (small orbiting raymarch of its own scene) shown in the node viewer. `SDF_to_TOP` previews by raymarching the baked volume, `SDF_to_POP` renders the mesh, `SDF_to_MAT` renders a box with the material.
+- `SDF_render` outputs: out1 colour; out2 linear eye-space depth in R (distance along the camera forward axis in world units, G = B = R, alpha 1 on hit, `Max Distance` with alpha 0 on miss); out3 view-space normals RGB in -1..1 (x right, y up, z toward camera); out4 world position. Its `Camera` parameter takes a Camera COMP (position/rotation/FOV read live; horizontal and vertical FOV methods); empty = built-in orbiting default camera. The optional in2 is an equirectangular environment TOP.
+- `SDF_to_MAT` marches the SDF in the object space of the geometry that carries the material, inside the `Bounds` box (the proxy geometry should be a box covering it), writes `gl_FragDepth`, and has an Apply To field like MAT_ components.
+- Limits: 128 vec4 parameter slots per scene; the SDF distance is exact only for rigid transforms and primitives (twist/noise/repeat are approximate, hence SDF_render `Step Scale`); lighting is built in (no TD lights or materials in SDF_render).

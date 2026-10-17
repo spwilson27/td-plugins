@@ -1,0 +1,2 @@
+{"inputs": {"in1": "image (dye)", "in2": "velocity / force", "in3": "modulation CHOP"},
+ "outputs": {"out1": "smeared image", "out2": "velocity", "out3": "dye field"}}

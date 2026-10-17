@@ -1,7 +1,6 @@
 exec(open(__import__('os').path.expanduser('~/software/td-plugins/snippets/src/_snip.py')).read())
 
 def inst(ex, name):
-    # keep the parameter values set in this snippet when the external tox reloads
     c = instance(ex, name)
     c.par.reloadcustom = False; c.par.reloadbuiltin = False
     return c
@@ -13,49 +12,42 @@ def beat_mod(ex, bpm=120):
     rn.par.renamefrom = 'pulse sine'; rn.par.renameto = 'beat band1'
     return rn
 
-def phase_clock(ex, hz=0.125):
-    """Ramp LFO renamed to `phase`: a stand-in for a timeline / master clock (0..1 per loop)."""
-    l = ex.create(td.lfoCHOP, 'clock_lfo', col=0, row=2); l.par.wavetype = 'ramp'; l.par.frequency = hz
-    l.par.amp = 1; l.par.offset = 0
-    rn = ex.create(td.renameCHOP, 'clock_phase', col=1, row=2); rn.inputConnectors[0].connect(l)
-    rn.par.renamefrom = 'chan1'; rn.par.renameto = 'phase'
-    return rn
+s = begin('TOP_physarum')
 
-def text_mask(ex, txt='TD', size=0.5):
-    t = ex.create(td.textTOP, 'mask'); t.par.text = txt
-    t.par.outputresolution = 'custom'; t.par.resolutionw = 1280; t.par.resolutionh = 720
-    t.par.fontsizex = 380; t.par.fontsizey = 380
-    t.par.bgcolorr = t.par.bgcolorg = t.par.bgcolorb = 0; t.par.bgalpha = 1
-    t.par.fontcolorr = t.par.fontcolorg = t.par.fontcolorb = 1
-    return t
-s = begin('GEN_physarum')
-
-ex = example(s, 1, 'Slime network',
-  'Physarum agents deposit a trail, sense it ahead-left/right and steer toward it: veins form on their own.\n'
-  'Try: Sensorangle (wide = thick webs, narrow = long tendrils), Decay (trail memory),\n'
-  'Diffuse (blur), Deposit. out2 = the raw trail map.')
-p = inst(ex, 'GEN_physarum')
-p.par.Resolutionw = 960; p.par.Resolutionh = 540
+ex = example(s, 1, 'Slime follows a photo',
+  'The input image is the food map: agents crawl toward bright areas, so veins grow thickest on the bananas.\n'
+  'Try: Attraction (strength; negative repels), Fieldblur (how far the pull reaches), Invert (follow the dark),\n'
+  'Inputlevel (how much of the photo shows through), Reset (restart the growth).')
+src = ex.create(td.moviefileinTOP, 'banana'); src.par.file.expr = sample_expr('Map/Banana.tif')
+p = inst(ex, 'TOP_physarum')
+p.inputConnectors[0].connect(src)
+p.par.Resolutionmode = 'custom'; p.par.Resolutionw = 960; p.par.Resolutionh = 540; p.par.Stepsize = 2; p.par.Decay = 0.9; p.par.Deposit = 0.12; p.par.Agents = 120000
+p.par.Attraction = 14; p.par.Fieldblur = 5
 out(ex, 1, p)
 
-ex = example(s, 2, 'Ring collapse, mono',
-  'Initpattern = ring starts the agents on a circle that collapses into a lattice. Short Sensordist and\n'
-  'a wide Sensorangle give a fine honeycomb. Mono look = bone-white veins on black.\n'
-  'Press Reset to replay the growth.')
-p = inst(ex, 'GEN_physarum')
-p.par.Resolutionw = 960; p.par.Resolutionh = 540
-p.par.Initpattern = 'ring'; p.par.Sensorangle = 55; p.par.Sensordist = 10; p.par.Decay = 0.9
-p.par.Look = 'mono'; p.par.Monogain = 1.0
+ex = example(s, 2, 'Follow the dark, tinted trails',
+  'Invert makes the agents seek dark areas; Colormode = tint paints the trails one colour, and Compose = add\n'
+  'lets them glow over a dimmed copy of the image. A long Sensordist gives coarse cells, a short one fine veins.')
+src = ex.create(td.moviefileinTOP, 'banana'); src.par.file.expr = sample_expr('Map/Banana.tif')
+p = inst(ex, 'TOP_physarum')
+p.inputConnectors[0].connect(src)
+p.par.Resolutionmode = 'custom'; p.par.Resolutionw = 960; p.par.Resolutionh = 540; p.par.Stepsize = 2; p.par.Decay = 0.9; p.par.Deposit = 0.12; p.par.Agents = 120000
+p.par.Invert = True; p.par.Attraction = 14; p.par.Fieldblur = 4
+p.par.Colormode = 'tint'; p.par.Tintr = 0.3; p.par.Tintg = 1.0; p.par.Tintb = 0.7
+p.par.Compose = 'add'; p.par.Inputlevel = 0.25; p.par.Sensordist = 10
 out(ex, 2, p)
 
-ex = example(s, 3, 'Pulsing trails on a clock',
-  'Loopmod wobbles sensor angle and distance in step with the Clock CHOP (ramp LFO renamed "phase",\n'
-  'Timesource = phase), so the network breathes in a loop. band1 from the Beat CHOP (modulation input)\n'
-  'boosts Deposit on every swell, so the veins flash brighter.')
-p = inst(ex, 'GEN_physarum')
-p.par.Resolutionw = 960; p.par.Resolutionh = 540
-p.par.Loopmod = 0.25; p.par.Timesource = 'phase'; p.par.Sensorangle = 45
-rn = beat_mod(ex); ck = phase_clock(ex)
-p.inputConnectors[0].connect(rn); p.par.Clock = ck
-out(ex, 3, p)
+ex = example(s, 3, 'Raw trail map, modulated',
+  'out2 is the raw trail map (a single float channel) for use as a mask or displacement source.\n'
+  'The Beat CHOP drives the modulation input: band1 boosts Deposit, so the veins swell with the beat.\n'
+  'Colormode = image tints the trails with the colours of the photo underneath.')
+src = ex.create(td.moviefileinTOP, 'count'); src.par.file.expr = sample_expr('Map/Count.mov')
+p = inst(ex, 'TOP_physarum')
+p.inputConnectors[0].connect(src)
+p.par.Resolutionmode = 'custom'; p.par.Resolutionw = 960; p.par.Resolutionh = 540; p.par.Stepsize = 2; p.par.Decay = 0.9; p.par.Deposit = 0.12; p.par.Agents = 120000
+p.par.Attraction = 8; p.par.Colormode = 'image'; p.par.Compose = 'over'; p.par.Inputlevel = 0.2; p.par.Gain = 1.5; p.par.Deposit = 0.12
+rn = beat_mod(ex)
+p.inputConnectors[1].connect(rn)
+lv = ex.create(td.levelTOP, 'expose'); lv.par.brightness1 = 2.5; connect(p, lv, out_index=1)
+out(ex, 3, lv)
 finish(s)

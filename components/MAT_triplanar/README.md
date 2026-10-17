@@ -4,7 +4,7 @@ Triplanar procedural material for meshes without UVs. Patterns are evaluated on 
 
 * **MAT**: `MAT_triplanar/mat` (GLSL MAT). No UVs, no inputs required.
 * **in1** (TOP, optional): texture projected triplanar when `Pattern = texture`. Unconnected -> internal noise TOP.
-* **out1**: preview render (sphere + torus).
+* **out1**: the material (Out MAT); internal `preview` TOP (not an output) = preview render (sphere + torus).
 
 ## Material page
 | Par | Meaning |
@@ -21,10 +21,10 @@ Triplanar procedural material for meshes without UVs. Patterns are evaluated on 
 | Octaves | fbm octaves (noise) |
 | Texscale | texture tiling per plane unit |
 | Animate | noise travel radius / voronoi jitter motion (0 = static) |
-| Scroll | integer pattern scroll cycles per loop |
+| Scroll | integer pattern scroll cycles per preview cycle |
 
-## Preview / Loop pages
-Preview: Resolution, Turns, Background, Camdistance, Showsphere, Showtorus. Loop: Timesource (abstime/phase), Phase, Loopseconds, Loopbeats, Bpm.
+## Preview page
+Time-based motion (preview spin, and the material's own animation where it has one) runs from absolute time; there is no Loop page.
 Loop seamlessness: noise samples a circle of radius `Animate` around its base point (`cos/sin(2*pi*phase)`), voronoi feature points orbit with `sin(2*pi*(phase+hash))`, scroll moves `2*Scroll*phase` (integer multiples of the period-2 patterns), spin is `360*Turns*phase`.
 
 ## Uniforms
@@ -34,17 +34,16 @@ Loop seamlessness: noise samples a circle of radius `Animate` around its base po
 | Connector | Type | Use |
 |---|---|---|
 | in1 | TOP, optional | texture for Pattern = texture |
-| in2 | CHOP, optional | modulation: channels band1-band4, beat, phase (missing channels read as 0). band1 adds to Contrast. Scaled by `Modamount`. |
+| in2 | CHOP, optional | modulation: channels band1-band4, beat (missing channels read as 0). band1 adds to Contrast. Scaled by `Modamount`. |
 
 | Output | Type | Label / content |
 |---|---|---|
-| out1 | TOP | preview render (sphere + torus knot/torus, tonemapped) |
+| out1 | MAT | material (the `mat` GLSL MAT); the preview render is the internal `preview` TOP |
 
 The material itself is `MAT_triplanar/mat` (GLSL MAT). Assign it to your Geometry COMP with `op('MAT_triplanar/mat')`.
 
 ## v2 parameters
 - **Material > Modamount**: scales the modulation CHOP.
-- **Loop > Clock**: optional CHOP; when set and `Timesource` = `phase`, the loop phase is read from its `phase` channel instead of `Phase`.
 
 ## Snippets
 `snippets/MAT_triplanar.tox` (About > Snippets): 3 examples, each applying `MAT_triplanar/mat` to a Geometry COMP with Camera, Light and Render TOP, plus parameter recipes and CHOP modulation.

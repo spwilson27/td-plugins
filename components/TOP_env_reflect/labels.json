@@ -1,0 +1,1 @@
+{"inputs": {"in1": "color", "in2": "normals (view space)", "in3": "environment map (equirect)", "in4": "roughness / mask"}, "outputs": {"out1": "reflective image"}}

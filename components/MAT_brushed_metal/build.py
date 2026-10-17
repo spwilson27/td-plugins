@@ -84,7 +84,7 @@ def input_stage(c, comp, bg=1.0):
     d = glsl(c, 'defsrc', rd(comp, 'src.glsl'), vecs=[('uTime', ['absTime.seconds', 0, 0, 0]), ('uBg', [bg, 0, 0, 0])], res=True)
     sw = c.create(td.switchTOP, 'src')
     sw.inputConnectors[0].connect(d); sw.inputConnectors[1].connect(i)
-    sw.par.index.expr = "1 if parent().inputConnectors[0].connections else 0"
+    sw.par.index.expr = "1 if (len(parent().inputConnectors[0].connections)+0*absTime.frame) else 0"
     setres(sw)
     sw.par.format = 'rgba16float'
     return sw
@@ -106,9 +106,7 @@ def report(c):
 # =============== matA shared: preview rig ===============
 import math
 SPEED = 'parent().par.Speed'
-LOOPLEN = "(parent().par.Loopseconds if parent().par.Loopbeats==0 else parent().par.Loopbeats*60.0/parent().par.Bpm)"
-# wrapped loop phase in [0,1): everything periodic in this
-PHW = ("(((float(parent().par.Clock.eval()['phase']) if parent().par.Clock.eval() else parent().par.Phase) if parent().par.Timesource=='phase' else absTime.seconds*parent().par.Speed/%s) %% 1.0)" % LOOPLEN)
+PHW = "((absTime.seconds*parent().par.Speed/8.0) % 1.0)"   # internal preview animation phase
 
 KNOT_CB = '''
 import math
@@ -164,7 +162,7 @@ def preview_rig(c, comp, mat, geo='both', sphere_rows=64, sphere_pos=(-1.55, 0, 
     m.menuNames = ['both', 'sphere', 'knot']; m.menuLabels = ['Sphere + Knot', 'Sphere', 'Torus knot']
     m.default = geo; m.val = geo
     q = pg.appendInt('Spin')[0]; q.default = 1; q.val = 1; q.min = 0; q.max = 8; q.normMin = 0; q.normMax = 4; q.clampMin = True
-    q.label = 'Spin (turns per loop)'
+    q.label = 'Spin (turns per cycle)'
     q = pg.appendFloat('Camdist')[0]; q.default = cam[2]; q.val = cam[2]; q.min = 2; q.max = 30; q.normMin = 3; q.normMax = 15
     q = pg.appendFloat('Backdrop')[0]; q.default = 1.0; q.val = 1.0; q.min = 0; q.max = 4; q.normMin = 0; q.normMax = 2
     q = pg.appendFloat('Exposure')[0]; q.default = 1.0; q.val = 1.0; q.min = 0.1; q.max = 8; q.normMin = 0.25; q.normMax = 4
@@ -244,7 +242,7 @@ def env_inputs(c):
 def mod_chop(c, i2):
     k = c.create(td.constantCHOP, 'mod_default'); k.par.name0 = 'mod'; k.par.value0 = 0
     sw = c.create(td.switchCHOP, 'mod_sel'); sw.inputConnectors[0].connect(k); sw.inputConnectors[1].connect(i2)
-    sw.par.index.expr = "1 if any(o.isCHOP for o in parent().inputs) else 0"
+    sw.par.index.expr = "1 if (any(o.isCHOP for o in parent().inputs)+0*absTime.frame) else 0"
     return sw
 
 def env_pars(pg_name_page):
@@ -253,20 +251,9 @@ def env_pars(pg_name_page):
             ('Accent', 'float', 0.35, 0, 2)]
 
 def time_pars(c):
-    add_loop(c)
+    pass
 
-# ---- loop helper (matl) ----
-def add_loop(c):
-    pg = c.appendCustomPage('Loop')
-    p = pg.appendMenu('Timesource')[0]; p.menuNames = ['abstime', 'phase']; p.menuLabels = ['Absolute time', 'Phase (loop)']
-    p.default = 'abstime'; p.val = 'abstime'
-    p = pg.appendFloat('Phase')[0]; p.default = 0; p.val = 0; p.min = 0; p.max = 1; p.normMin = 0; p.normMax = 1
-    pg.appendCHOP('Clock')
-    p = pg.appendFloat('Loopseconds')[0]; p.default = 8; p.val = 8; p.min = 0.1; p.max = 120; p.normMin = 0.1; p.normMax = 60; p.clampMin = True
-    p = pg.appendInt('Loopbeats')[0]; p.default = 0; p.val = 0; p.min = 0; p.max = 128; p.normMin = 0; p.normMax = 32; p.clampMin = True
-    p = pg.appendFloat('Bpm')[0]; p.default = 120; p.val = 120; p.min = 20; p.max = 300; p.normMin = 20; p.normMax = 300
-PH = ("((float(parent().par.Clock.eval()['phase']) if parent().par.Clock.eval() else parent().par.Phase) if parent().par.Timesource=='phase' else absTime.seconds/"
-      "(parent().par.Loopseconds if parent().par.Loopbeats==0 else parent().par.Loopbeats*60.0/parent().par.Bpm))")
+PH = "(absTime.seconds/8.0)"
 def P(n): return 'parent().par.' + n
 
 COMP = 'MAT_brushed_metal'; c = new_comp(COMP)
@@ -290,7 +277,6 @@ add_pars(c, [
     ('Envmix', 'float', 0.0, 0, 1), ('Envrot', 'float', 0.0, 0, 1), ('Envgain', 'float', 1.0, 0, 8),
     ('Accent', 'float', 0.3, 0, 2),
 ], page='Material')
-add_loop(c)
 i1, i2 = env_inputs(c)
 m = make_mat(c, 'mat', vtx, ENV + pix)
 mat_uniforms(m, [

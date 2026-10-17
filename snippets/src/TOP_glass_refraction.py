@@ -5,7 +5,7 @@ src = ex.create(moviefileinTOP, 'banana'); src.par.file.expr = sample_expr('Map/
 g = instance(ex, 'TOP_glass_refraction'); g.inputConnectors[0].connect(src)
 g.par.Absorption = 0.1; g.par.Ior = 1.25; g.par.Frost = 0.15
 out(ex, 1, g)
-ex = example(s, 2, 'Frosted torus over a movie', 'Count.mov seen through a frosted glass torus.\nFrost blurs what is behind the glass, Absorption tints thick parts, Spin sets turns per loop.')
+ex = example(s, 2, 'Frosted torus over a movie', 'Count.mov seen through a frosted glass torus.\nFrost blurs what is behind the glass, Absorption tints thick parts, Spin sets how fast it turns.')
 src = ex.create(moviefileinTOP, 'count'); src.par.file.expr = sample_expr('Map/Count.mov')
 g = instance(ex, 'TOP_glass_refraction'); g.inputConnectors[0].connect(src)
 g.par.Shape = 'torus'; g.par.Frost = 0.4; g.par.Dispersion = 0.25; g.par.Size = 1.3

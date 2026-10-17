@@ -13,23 +13,21 @@ Two GLSL passes: **tape** (wobble, per-line jitter, interlace comb, 3 tracking-n
 | Curvature, Scanlines, Scanlinecount, Maskstrength, Glow, Vignette, Flicker | CRT |
 | Resolution | output size |
 
-**Loop page** (all four): `Timesource` (abstime/phase), `Phase` (0-1), `Loopbeats` (default 8) with `Bpm` (120), or `Loopseconds` (>0 overrides beats). Internally one phase value P=fract(time/loop) (or `Phase`) drives everything.
 
-**Seamless loop:** wobble/bands/hum use integer harmonics of P; per-frame noise is hashed from the frame index inside the loop (frames/loop is even), so it repeats exactly at P 0==1.
-
-
-## v2 conventions (TOP_vhs_crt)
+## Inputs, outputs and common parameters
 
 **Inputs and outputs**
 
 | Connector | Meaning |
 |---|---|
 | in1 (TOP) | image to process (unconnected = animated default source) |
-| in2 (CHOP) | optional modulation: channels band1-band4, beat, phase (any subset) |
+| in2 (CHOP) | optional modulation: channels band1-band4, beat (any subset) |
 | out1 | result |
 
 **New parameters**
 - `Mix` (0-1): dry/wet against the input. `Bypass`: passes in1 straight through (Switch TOP).
 - `Resolutionmode`: `input` follows in1 (or the default source, sized by `Resolution`, when unconnected); `custom` uses `Resolution`.
-- `Clock` (Loop page, CHOP): with Timesource = phase, phase is read from this CHOP's `phase` channel instead of `Phase`.
 - Modulation CHOP drives: Tracking (+band1), Jitter (+beat).
+
+## Demo source
+With nothing connected to `in1` the component shows a built-in animated test source. It lives in the `demo` Base COMP and is selected by a Switch TOP only while `in1` is unconnected; with an input connected nothing inside `demo` cooks. The component has no Loop page or loop parameters: animation uses absolute time and only exists to make the preview move. Output is warning-free with nothing connected, with `in1` connected, and with all inputs connected.

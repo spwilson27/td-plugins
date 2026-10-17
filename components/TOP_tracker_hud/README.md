@@ -21,7 +21,7 @@
 | Linecount | number of connecting lines |
 | Gridsize | grid spacing px |
 | Threshold | luminance needed to accept a point |
-| Refresh | re-seed point selection N times per loop (0 = never) |
+| Refresh | re-seed point selection N times per 8 s cycle (0 = never) |
 | Jitter | periodic jitter amount |
 | Dim | input brightness under the HUD |
 | Scanlines | scanline strength |
@@ -30,6 +30,8 @@
 | Bypass | pass in1 straight through (common) |
 | Resolutionmode | `input` follows in1 (else Resolution); `custom` uses Resolution (common) |
 
-**Loop page** (all components): `Timesource` (`abstime` | `phase`), `Phase` (0-1), `Loopseconds`, `Loopbeats` (0 = use seconds, else beats at `Bpm`), `Bpm`, plus `Clock` (CHOP; when set and Timesource=phase, phase is read from its `phase` channel). In `phase` mode, every motion is a function of `Phase` only; abstime mode just advances the same phase at 1/loop-duration.
 
-**Loop:** point re-seed epoch = `floor(Phase*Refresh) mod Refresh`, jitter = sin/cos(2*pi*Phase*k). Limitations: points are re-detected every frame against the live image, so they can hop when content crosses Threshold; dense Points + `both` labels will overlap.
+Limitations: points are re-detected every frame against the live image, so they can hop when content crosses Threshold; dense Points + `both` labels will overlap.
+
+## Demo source
+The built-in preview source lives in a `demo` Base COMP behind a Switch: it is selected only while `in1` is unconnected, so with an input connected it does not cook. There is no Loop page; animation uses absolute time and only exists to make the unconnected preview move.

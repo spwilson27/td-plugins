@@ -62,14 +62,14 @@ m.par.Wetness = 1.0; m.par.Bump = 2.2; m.par.Scale = 3.0; m.par.Dripamt = 1.8; m
 m.par.Basecolorr = m.par.Basecolorg = m.par.Basecolorb = 0.04
 out(ex, 2, rig(ex, m, 'teapot'))
 
-ex = example(s, 3, 'Env photo + Clock loop',
+ex = example(s, 3, 'Env photo reflection',
   'A 360 photo into in1 with Envmix = 1 replaces the studio env, so the black surface mirrors a real place.\n'
-  'A ramp LFO named phase drives Clock (Timesource = phase): the film flow loops once per ramp cycle.\n'
+  'The film flow animates by itself; Speed scales it.\n'
   'Envrot (0-1) spins the reflection; Envgain brightens it.')
-env = envphoto(ex); clk = ramp_phase(ex, 0.125)
+env = envphoto(ex)
 m = instance(ex, NAME, col=0)
 m.inputConnectors[0].connect(env)
-m.par.Envmix = 1.0; m.par.Envgain = 1.5; m.par.Clock = clk; m.par.Timesource = 'phase'
+m.par.Envmix = 1.0; m.par.Envgain = 1.5
 out(ex, 3, rig(ex, m, 'torus', via_render=True))
 
 for c in s.findChildren(type=COMP, depth=1):

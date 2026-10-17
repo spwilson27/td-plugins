@@ -1,7 +1,6 @@
 // in0 = previous frame (feedback), in1 = source
 uniform vec4 uXf;     // x scale, y rotate(rad/frame), z tx, w ty
 uniform vec4 uCol;    // x hue deg/frame, y decay, z inject, w active
-uniform vec4 uP;      // x isPhase
 uniform vec4 uNz;     // x amount, y scale, z speed*time, w blend mode
 out vec4 fragColor;
 float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
@@ -24,7 +23,7 @@ void main(){
   p=mat2(ca,-sa,sa,ca)*p;
   p/=max(uXf.x,1e-3);
   vec2 q=vec2(p.x/asp,p.y)+.5;
-  vec2 no=uP.x>.5 ? 3.0*vec2(cos(uNz.z),sin(uNz.z)) : vec2(uNz.z);   // phase mode: noise offset travels a circle -> periodic
+  vec2 no=vec2(uNz.z);
   vec2 n=vec2(vn(q*uNz.y+no),vn(q*uNz.y+no+31.7))-.5;
   q+=n*uNz.x*.03;
   vec4 pv=texture(sTD2DInputs[0],q);

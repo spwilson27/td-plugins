@@ -1,7 +1,7 @@
 uniform vec4 uA; // mode, segments, rotation(rad), zoom
 uniform vec4 uB; // centerX, centerY, animPhase, tiles
 uniform vec4 uC; // hyperQ, srcZoom, animate, 0
-uniform vec4 uD; // isPhase, look(1=mono), accent, 0
+uniform vec4 uD; // unused, look(1=mono), accent, 0
 out vec4 fragColor;
 const float PI = 3.14159265359;
 vec2 rot(vec2 p, float a){ float c=cos(a), s=sin(a); return vec2(c*p.x - s*p.y, s*p.x + c*p.y); }
@@ -24,15 +24,14 @@ void main(){
     p /= max(uA.w, 1e-3);
     int mode = int(uA.x + 0.5);
     float ph = uB.z;
-    // phase mode: integer harmonics so the motion is exactly periodic
-    float kA = uD.x > 0.5 ? 1. : 0.5, kB = uD.x > 0.5 ? 1. : 0.4, kC = uD.x > 0.5 ? 1. : 0.37, kD = uD.x > 0.5 ? 1. : 0.53;
+    float kA = 0.5, kB = 0.4, kC = 0.37, kD = 0.53;
     vec2 q; bool outside = false; float shade = 1.0;
     float sz = max(uC.y, 1e-3);
 
     if(mode == 0){                       // N-fold radial
         vec2 v = rot(p - vec2(uB.x, uB.y)*2.0, -uA.z);
         v = foldRadial(v, max(floor(uA.y + 0.5), 1.0));
-        q = 0.5 + rot(v, uC.z*(uD.x > 0.5 ? 0.6*sin(ph) : ph*0.15)) * 0.5 / sz;
+        q = 0.5 + rot(v, uC.z*(ph*0.15)) * 0.5 / sz;
     } else if(mode == 1){                // square mirror tiles
         vec2 v = rot(p - vec2(uB.x, uB.y)*2.0, -uA.z) * uB.w * 0.5 + 0.15*uC.z*vec2(sin(ph*kA), cos(ph*kB));
         q = abs(mod(v, 2.0) - 1.0);      // mirrored repeat 0..1

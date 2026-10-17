@@ -1,9 +1,11 @@
+uniform vec4 uA; // step(height fraction), speedByMag, aspect, frame
+uniform vec4 uB; // play, lifetime(frames), 0, 0
 out vec4 fragColor;
 void main(){
     ivec2 ip = ivec2(gl_FragCoord.xy);
     vec4 s = texelFetch(sTD2DInputs[0], ip, 0);
-    float asp = uC.z;
-    vec2 seed = vec2(ip) + uC.w*0.137;
+    float asp = uA.z;
+    vec2 seed = vec2(ip) + uA.w*0.137;
     bool fresh = s.w < 0.5;
     bool out_ = s.x < 0. || s.x > 1. || s.y < 0. || s.y > 1.;
     if(fresh || s.z >= 1.0 || out_){
@@ -12,9 +14,10 @@ void main(){
         fragColor = vec4(np, age, 1.);
         return;
     }
-    if(uC.x < 0.5){ fragColor = s; return; }
-    vec2 d = flowDir(s.xy);
-    s.xy += d * uA.z * vec2(1./asp, 1.);
-    s.z += 1./max(uC.y, 1.);
+    if(uB.x < 0.5){ fragColor = s; return; }
+    vec3 f = fieldAt(sTD2DInputs[1], s.xy);
+    float sp = mix(1., max(f.z, 0.15), uA.y);
+    s.xy += f.xy * uA.x * sp * vec2(1./asp, 1.);
+    s.z += 1./max(uB.y, 1.);
     fragColor = s;
 }

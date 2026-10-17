@@ -14,11 +14,11 @@ Droste / log-polar recursive picture-in-picture of `in1` (default internal sourc
 
 | Page | Param | Notes |
 |---|---|---|
-| Controls | Speed | multiplies the abs-time loop rate |
+| Controls | Speed | zoom/animation rate (1 = one lattice cycle per 8 s) |
 | | Innerscale | scale of each nested copy (period = ln(1/s)) |
-| | Zoomperiods | nested-copy periods travelled per loop (sign = direction, integer) |
+| | Zoomperiods | nested-copy periods travelled per cycle (sign = direction, integer) |
 | | Rotation | spiral: rotation in turns gained per period (any real value) |
-| | Spin | whole-image turns per loop (integer) |
+| | Spin | whole-image turns per cycle (integer) |
 | | Fill | fraction of the image radius used (1 = inscribed circle) |
 | | Center, Seam, Original | centre point, ring-seam softening, blend of the un-warped image |
 | | Modamount | strength of the modulation input |
@@ -26,10 +26,10 @@ Droste / log-polar recursive picture-in-picture of `in1` (default internal sourc
 | | Bypass | passes in1 straight through |
 | | Resolutionmode | `input` follows in1 (default source: Resolution); `custom` uses Resolution |
 | | Resolution | used when Resolutionmode = custom or in1 is not connected |
-| Loop | Timesource (abstime/phase), Phase | in phase mode the phase comes from the Clock CHOP's `phase` channel if Clock is set, else from Phase |
-| | Clock | CHOP parameter, optional (ramp 0-1 channel named `phase`) |
-| | Loopseconds, Loopbeats, Bpm | loop length: seconds if > 0, else beats at Bpm |
 
-## Looping
+## Seamless zoom
 Coordinates are shifted along the self-similarity lattice vector (L, beta) by `delta = -Zoomperiods * p * L` (and the matching spiral rotation). At p = 1 that is an integer number of lattice periods, so the image is identical. Spin uses integer turns for the same reason.
 Note: with a custom in1 the source is sampled in a circle (radius 0.5 of height * Fill); content outside it is never used.
+
+## Demo source
+The built-in preview source lives in a `demo` Base COMP behind a Switch: it is selected only while `in1` is unconnected, so with an input connected it does not cook. There is no Loop page; animation uses absolute time and only exists to make the unconnected preview move.

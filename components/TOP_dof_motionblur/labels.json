@@ -1,0 +1,12 @@
+{
+ "inputs": {
+  "in1": "colour",
+  "in2": "depth map",
+  "in3": "velocity map",
+  "in4": "modulation CHOP"
+ },
+ "outputs": {
+  "out1": "result",
+  "out2": "depth map"
+ }
+}

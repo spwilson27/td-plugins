@@ -34,7 +34,7 @@ def envphoto(ex):
     e = ex.create(td.moviefileinTOP, 'envphoto', col=0, row=2); e.par.file.expr = sample_expr(ENVPHOTO)
     return e
 
-def ramp_phase(ex, freq=0.125):
+def _unused_ramp_phase(ex, freq=0.125):
     l = ex.create(td.lfoCHOP, 'phase', col=0, row=3); l.par.wavetype = 'ramp'; l.par.frequency = freq
     l.par.channelname = 'phase'; l.par.amp = 1; l.par.offset = 0
     return l
@@ -63,13 +63,13 @@ m.par.Deepcolorr = 0.02; m.par.Deepcolorg = 0.45; m.par.Deepcolorb = 0.05
 m.par.Translucency = 2.6; m.par.Rimglow = 1.4; m.par.Specpower = 200; m.par.Jiggle = 0.07; m.par.Jigglefreq = 3
 out(ex, 2, rig(ex, m, 'teapot'))
 
-ex = example(s, 3, 'Wobble on a Clock (loopable)',
-  'A ramp LFO named phase drives the Clock parameter (Timesource = phase): the wobble becomes a pure\n'
-  'function of the ramp, so one ramp cycle is one seamless loop. Jigglespeed = whole wobble cycles per loop.\n'
-  'Use a Beat CHOP (phase channel) instead of the LFO to lock the jiggle to the tempo.')
-clk = ramp_phase(ex, 0.25)
+ex = example(s, 3, 'Animated wobble (LFO on a parameter)',
+  'An LFO CHOP drives Jiggle by expression (parent().op(...)), so the wobble strength pulses over time.\n'
+  'Any CHOP (Audio Spectrum, Beat, Analyze) can drive Jiggle, Translucency or Rimglow the same way.\n'
+  'Here the material is applied to the Render TOP (Override Material) instead of the Geometry COMP.')
 m = instance(ex, NAME, col=0)
-m.par.Clock = clk; m.par.Timesource = 'phase'; m.par.Jiggle = 0.22; m.par.Jigglespeed = 4
+lfo_par(ex, m, 'Jiggle', 0.02, 0.25, 0.3)
+m.par.Jigglespeed = 4
 out(ex, 3, rig(ex, m, 'torus', via_render=True))
 
 for c in s.findChildren(type=COMP, depth=1):

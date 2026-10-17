@@ -5,7 +5,7 @@ s = begin('TOP_pixel_sort')
 ex = example(s, 1, 'Sort a photo', 'Movie File In (Trillium.jpg) -> TOP_pixel_sort -> example1.\nPixels brighter than Thresholdlow and darker than Thresholdhigh get sorted along Direction.\nRaise Passes for longer smears (it is sorted a few steps per frame, so let it run a second or two).\nPress Reset to start the sort again from the clean picture.')
 m = ex.create(moviefileinTOP, 'photo'); m.par.file.expr = sample_expr('Map/Trillium.jpg')
 g = instance(ex, 'TOP_pixel_sort'); g.inputConnectors[0].connect(m)
-g.par.Passes = 16; g.par.Bytebeat = 0; g.par.Shuffle = 0; g.par.Loopfade = 0; g.par.Refresh = 0
+g.par.Passes = 16; g.par.Bytebeat = 0; g.par.Shuffle = 0; g.par.Refresh = 0
 out(ex, 1, g)
 
 # 2. recipe: vertical hue sort on a movie
@@ -13,7 +13,7 @@ ex = example(s, 2, 'Vertical hue drips on a movie', 'Movie File In (Count.mov) -
 m = ex.create(moviefileinTOP, 'movie'); m.par.file.expr = sample_expr('Map/Count.mov')
 g = instance(ex, 'TOP_pixel_sort'); g.inputConnectors[0].connect(m)
 g.par.Direction = 'down'; g.par.Key = 'hue'; g.par.Thresholdlow = 0.05; g.par.Refresh = 0.05
-g.par.Passes = 12; g.par.Loopfade = 0; g.par.Bytebeat = 0.35; g.par.Shuffle = 0.4
+g.par.Passes = 12; g.par.Bytebeat = 0.35; g.par.Shuffle = 0.4
 out(ex, 2, g)
 
 # 3. modulation
@@ -23,7 +23,7 @@ l = ex.create(lfoCHOP, 'lfo'); l.par.amp = 0.5; l.par.offset = 0.5; l.par.freque
 r = ex.create(renameCHOP, 'rename'); r.inputConnectors[0].connect(l)
 r.par.renamefrom = 'chan1'; r.par.renameto = 'band1'
 g = instance(ex, 'TOP_pixel_sort'); g.inputConnectors[0].connect(m); g.inputConnectors[1].connect(r)
-g.par.Passes = 10; g.par.Bytebeat = 0.0; g.par.Modamount = 1.0; g.par.Shuffle = 0.0; g.par.Loopfade = 0
+g.par.Passes = 10; g.par.Bytebeat = 0.0; g.par.Modamount = 1.0; g.par.Shuffle = 0.0;
 out(ex, 3, g)
 for c in s.findChildren(type=COMP, depth=1):
     if c.par.externaltox.eval(): c.par.reloadcustom = False
