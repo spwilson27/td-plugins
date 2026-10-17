@@ -2,7 +2,7 @@
 // in0 = colour, in1 = depth (R). Depth encodings: see README (linear eye-space z, or Render-TOP nonlinear + Near/Far).
 out vec4 fragColor;
 uniform vec4 uA;   // depthmode (0 linear, 1 nonlinear), near, far, depthscale
-uniform vec4 uB;   // fogmode (0 exp, 1 exp2, 2 linear), density, start, end
+uniform float uCurve[128];   // fog amount f(t) for t = 0..Far, built by the native CHOP network `fog_curve` (exp / exp2 / linear)
 uniform vec4 uC;   // fog colour rgb, fog amount (max opacity)
 uniform vec4 uD;   // fov (deg), camera height, camera pitch (deg, + = looking down), sky blend
 uniform vec4 uE;   // height fog on, base height, falloff, height density
@@ -36,10 +36,10 @@ void main(){
     float ryw = cp * rd.y + sp * rd.z;               // world-space y of the view ray
     float t = sky ? uA.z : d * rl;                    // distance along the ray
 
-    float f;
-    if (uB.x < 0.5)      f = 1.0 - exp(-uB.y * t);
-    else if (uB.x < 1.5) f = 1.0 - exp(-(uB.y * t) * (uB.y * t));
-    else                 f = clamp((t - uB.z) / max(uB.w - uB.z, 1e-4), 0.0, 1.0);
+    // distance fog: read the curve (linear interpolation between its 128 samples)
+    float ci = clamp(t / uA.z, 0.0, 1.0) * 127.0;
+    int c0 = int(floor(ci));
+    float f = mix(uCurve[c0], uCurve[min(c0 + 1, 127)], ci - float(c0));
 
     if (uE.x > 0.5) {
         float k = max(uE.z, 1e-4);

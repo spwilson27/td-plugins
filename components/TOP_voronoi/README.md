@@ -17,3 +17,9 @@ Voronoi cells, cracked and stained glass built from an input image. Each cell is
 - **Look**: Original or Mono (bone-white and grey, optional red Accent).
 
 The effect is stateless (no Reset needed); seeds are re-derived each frame from the input. There are no loop parameters.
+
+## Implementation
+
+### Preview source (demo)
+The `demo` COMP used when `in1` is unconnected is built only from native operators, no GLSL: a Constant TOP ground and seven soft, colourful Circle TOP blobs, stacked by a Composite TOP. It sits behind the Switch, so it does not cook when an input is connected.
+

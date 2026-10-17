@@ -23,3 +23,21 @@ There is no Loop page; the preview orbit/ripple animation runs from absolute tim
 | out1 | POP | deformed mesh |
 
 Render `out1` yourself, e.g. a Geometry COMP with a Select POP and a PBR MAT.
+
+## Implementation
+Built entirely from built-in POPs (no GLSL in the deformer):
+- `normals_in` (Normal POP) makes sure the mesh has normals.
+- `noise_shell` (Noise POP, simplex 3D, 2 octaves, combine = none) writes a noise value per point into the attribute `nv` (it does not move the points itself); its translate parameters travel on a circle through noise space so it loops.
+- `deform` (Math Combine POP) does all the arithmetic as a short, commented list of steps: (1) ripples: distance from the top pole, `sin(distance * Ripplefreq - phase)`, the `exp(-0.25 * distance)` fade, then one push along the normal, `P += N * (wave * fade * Ripple*0.25 + Inflate*0.5 + noise * 0.44 * Noiseshell)`; (2) twist: rotate (x, z) by `Twist * y`; (3) bend: rotate (x, y) by `Bend * x`.
+- `normals_out` (Normal POP) rebuilds normals for the output.
+Only the preview's environment map (`envmap`, the shared studio-chrome texture) is still a GLSL TOP; it is not part of the deformation.
+
+Why not the Twist POP: it was tried. Its twist matches the old twist in size but turns the opposite way, and its bend is a true circular bend, not the old curl (rotation by `Bend * x`). Both rotations are three or four steps of arithmetic, so they live in the one Math Combine, which also saves two extra full-mesh passes (each POP in the chain costs a pass over all points; the version with separate Twist POP and bend nodes benched slower).
+
+Checked against the old shader on the same mesh with the other amounts at zero: twist, bend, ripple and inflate agree to 1e-6. The noise is Simplex (Noise POP) instead of value noise, tuned (amplitude, period) for the same lump height and size; it is not point-for-point identical.
+
+Bench (`tools/bench.py`, 200x200 grid in, GPU ms, median of 11 interleaved runs; the machine was loaded by other jobs and individual runs spread from 0.5 to 13 ms, so treat the percentages as "about the same"):
+| Size | old GLSL | native | change |
+|---|---|---|---|
+| 1280x720 | 0.86 | 0.92 | +6.8 % |
+| 1920x1080 | 0.85 | 1.01 | +17.9 % |

@@ -134,7 +134,7 @@ def v3_finish(c, name, dry='src', mod=(), selfmix=False, outlabels=None):
     for pn, tmpl in mod:
         rx = re.compile(r"parent\(\)\.par\.%s\b" % pn)
         hit = 0
-        for g in c.findChildren(type=td.glslTOP):
+        for g in c.findChildren():
             for p in g.pars():
                 if p.mode == ParMode.EXPRESSION and rx.search(p.expr):
                     p.expr = rx.sub(lambda m: tmpl.format(v=m.group(0), b1=_CH('band1'), b2=_CH('band2'), b3=_CH('band3'), b4=_CH('band4'), beat=_CH('beat')), p.expr); hit += 1
@@ -158,6 +158,7 @@ def v3_finish(c, name, dry='src', mod=(), selfmix=False, outlabels=None):
     print('saved raw', name)
 # ---- end helpers ----
 COMP = 'TOP_flow_field_lines'
+import colorsys
 c = new_comp(COMP)
 P = 'parent().par.'
 add_pars(c, [
@@ -193,67 +194,205 @@ add_pars(c, [
     ('Linecolor', 'rgb', (0.9, 0.7, 0.35)),
 ], page='Strokes')
 
-# ---- input + gated demo ----
-i = c.create(td.inTOP, 'in1')
+ASP = "(parent().par.Resolutionw/parent().par.Resolutionh)"
+RATE = "project.cookRate"
+
+# ---------------------------------------------------------------- demo source (native)
+def hsv_rgb(h, s, v): return colorsys.hsv_to_rgb(h % 1.0, s, v)
 d = c.create(td.baseCOMP, 'demo')
 d.comment = 'preview-only source (used while in1 is unconnected; does not cook otherwise)'
-dg = glsl(d, 'pattern', rd(COMP, 'demo.glsl'), vecs=[('uT', ['absTime.seconds', 'parent(2).par.Resolutionw/parent(2).par.Resolutionh', 0, 0])])
-setres(dg, 'parent(2).par.Resolutionw', 'parent(2).par.Resolutionh')
-do = d.create(td.outTOP, 'out1'); do.inputConnectors[0].connect(dg); do.par.label = 'demo source'
+RES_W = 'parent(2).par.Resolutionw'; RES_H = 'parent(2).par.Resolutionh'
+def dres(o):
+    o.par.outputresolution = 'custom'; o.par.resolutionw.expr = RES_W; o.par.resolutionh.expr = RES_H
+    o.par.format = 'rgba16float'
+    if hasattr(o.par, 'justifyh'):
+        o.par.justifyh = 'center'; o.par.justifyv = 'center'
+bgk = d.create(td.tableDAT, 'bg_keys'); bgk.appendRow(['pos', 'r', 'g', 'b', 'a'])
+bgk.appendRow([0, 0.03, 0.04, 0.10, 1]); bgk.appendRow([1, 0.12, 0.06, 0.10, 1])
+bg = d.create(td.rampTOP, 'bg'); bg.par.type = 'vertical'; bg.par.dat = bgk; dres(bg)
+parts = [bg]
+for i in range(6):
+    r_ = .10 + .03 * i
+    col = hsv_rgb(i * 0.17 + 0.05, 1.0, 1.0)
+    cx = "math.sin(absTime.seconds*0.21+%r)*0.62*%s" % (i * 1.9, RES_H)
+    cy = "math.cos(absTime.seconds*0.17+%r)*0.30*%s" % (i * 2.7, RES_H)
+    ds = d.create(td.circleTOP, 'disc%d' % i); dres(ds)
+    ds.par.radiusunit = 'pixels'; ds.par.radiusx.expr = ds.par.radiusy.expr = '%r*%s' % (r_, RES_H)
+    ds.par.centerunit = 'pixels'; ds.par.centerx.expr = cx; ds.par.centery.expr = cy
+    for ch, v in zip('rgb', col): ds.par['fillcolor' + ch] = v * 0.9
+    ds.par.fillalpha = 1; ds.par.bgalpha = 0; ds.par.softnessunit = 'pixels'; ds.par.softness.expr = '%r*%s' % (r_ * 0.85, RES_H)
+    rg = d.create(td.circleTOP, 'ring%d' % i); dres(rg)
+    rg.par.radiusunit = 'pixels'; rg.par.radiusx.expr = rg.par.radiusy.expr = '%r*%s' % (r_ * 1.7, RES_H)
+    rg.par.centerunit = 'pixels'; rg.par.centerx.expr = cx; rg.par.centery.expr = cy
+    rg.par.fillalpha = 0; rg.par.bgalpha = 0
+    for ch, v in zip('rgb', col): rg.par['border' + ch] = v * 0.7
+    rg.par.borderalpha = 1; rg.par.borderwidthunit = 'pixels'; rg.par.borderwidth.expr = '0.06*%s' % RES_H
+    rg.par.softnessunit = 'pixels'; rg.par.softness.expr = '0.04*%s' % RES_H
+    parts += [ds, rg]
+scene = d.create(td.compositeTOP, 'scene'); scene.par.operand = 'add'; scene.par.format = 'rgba16float'
+for k, s_ in enumerate(parts): scene.inputConnectors[k].connect(s_)
+opq = d.create(td.reorderTOP, 'opaque'); opq.inputConnectors[0].connect(scene)
+for ch in ('red', 'green', 'blue'): opq.par['output' + ch + 'chan'] = ch
+opq.par.outputalphachan = 'one'; opq.par.format = 'rgba16float'
+do = d.create(td.outTOP, 'out1'); do.inputConnectors[0].connect(opq); do.par.label = 'demo source'
+i1 = c.create(td.inTOP, 'in1')
 src = c.create(td.switchTOP, 'src')
-src.inputConnectors[0].connect(d.outputConnectors[0]); src.inputConnectors[1].connect(i)
+src.inputConnectors[0].connect(d.outputConnectors[0]); src.inputConnectors[1].connect(i1)
 src.par.index.expr = "(1 if len(parent().inputConnectors[0].connections) else 0) + 0*absTime.frame"
 setres(src); src.par.format = 'rgba16float'
 
-ASP = "(parent().par.Resolutionw/parent().par.Resolutionh)"
-STEP = P + "Stepsize*" + P + "Speed"
-side = "int(math.ceil(math.sqrt(max(1,%sCount))))" % P
-def sq(g):
-    g.par.outputresolution = 'custom'; g.par.resolutionw.expr = side; g.par.resolutionh.expr = side
-
-# ---- field ----
+# ---------------------------------------------------------------- field (GLSL: gradient / curl-noise maths)
 field = glsl(c, 'field', rd(COMP, 'field.glsl'), inputs=[src], res=True, vecs=[
     ('uA', [P + 'Fieldmode.menuIndex', P + 'Inputamt', P + 'Turbulence', P + 'Fieldscale']),
     ('uB', ['absTime.seconds*' + P + 'Fieldspeed', ASP, P + 'Smooth', P + 'Rotate*0.0174533']),
 ])
 
-# ---- particle state (feedback) ----
-common = rd(COMP, 'common.glsl')
-zs = c.create(td.constantTOP, 'zero_state'); zs.par.colorr = zs.par.colorg = zs.par.colorb = 0; zs.par.alpha = 0; zs.par.format = 'rgba32float'; sq(zs)
-fbs = c.create(td.feedbackTOP, 'fb_state'); fbs.inputConnectors[0].connect(zs); fbs.par.format = 'rgba32float'; sq(fbs)
-st = glsl(c, 'state', common + rd(COMP, 'state.glsl'), inputs=[fbs, field], fmt='rgba32float', vecs=[
-    ('uA', [STEP, P + 'Speedbymag', ASP, 'absTime.frame']),
-    ('uB', [P + 'Play', P + 'Lifetime', 0, 0]),
-]); sq(st)
-fbs.par.top = st
+# ---------------------------------------------------------------- particles (Particle POP, steered by the field)
+def mcomb(name, inp, vecs=(), combs=()):
+    """Math Combine POP. vecs: (name, type, [values/exprs]); combs: (oper, a, b, c, result)."""
+    m = c.create(td.mathcombinePOP, name)
+    if inp is not None: m.inputConnectors[0].connect(inp)
+    if vecs:
+        m.seq.vec.numBlocks = len(vecs)
+        for k, (n, t, vals) in enumerate(vecs):
+            m.par['vec%dname' % k] = n; m.par['vec%dtype' % k] = t
+            for j, v in enumerate(vals):
+                p_ = m.par['vec%dvalue%d' % (k, j)]
+                if isinstance(v, str): p_.expr = v
+                else: p_.val = v
+    if combs:
+        m.seq.comb.numBlocks = len(combs)
+        for k, (op_, a, b, cc, res) in enumerate(combs):
+            m.par['comb%doper' % k] = op_
+            m.par['comb%dscopea' % k] = a
+            if b: m.par['comb%dscopeb' % k] = b
+            if cc: m.par['comb%dscopec' % k] = cc
+            m.par['comb%dresult' % k] = res
+    return m
 
-# ---- instance data ----
-G = {}
-for k, nm in enumerate(['inst_t', 'inst_r', 'inst_s', 'inst_c']):
-    g = glsl(c, nm, common + rd(COMP, 'inst.glsl'), inputs=[st, field, src], fmt='rgba32float', vecs=[
-        ('uA', [STEP, P + 'Speedbymag', ASP, P + 'Trail']),
-        ('uB', [P + 'Linewidth/' + P + 'Resolutionh', P + 'Colormode.menuIndex', P + 'Saturation', k]),
-        ('uC', [P + 'Linecolorr', P + 'Linecolorg', P + 'Linecolorb', 0]),
-    ]); sq(g)
-    G[nm] = g
+gen = c.create(td.pointgeneratorPOP, 'spawn_points')   # pool of spawn positions inside the image; the Particle POP picks random ones for each birth
+gen.par.shape = 'rectangle'; gen.par.sizex = 1; gen.par.sizey = 1; gen.par.tx = 0.5; gen.par.ty = 0.5
+gen.par.distribution = 'surface'; gen.par.createpointprim = False
+gen.par.numpoints = 65536
+loop = c.create(td.nullPOP, 'null_loop')
+pp = c.create(td.particlePOP, 'particles'); pp.inputConnectors[0].connect(gen)
+pp.par.targetpop = loop
+pp.par.maxparticles.expr = P + 'Count'
+pp.par.birthrateunit = 'frames'; pp.par.birthrate.expr = '4*%sCount/%sLifetime' % (P, P)   # oversupply: births only fill free slots up to Count
+pp.par.lifevariance = 0.5
+pp.par.life.expr = P + 'Lifetime'; pp.par.lifeunit = 'frames'
+pp.par.play.expr = P + 'Play'
+pp.par.speed.expr = '1/(project.cookRate*max(absTime.stepSeconds, 1e-4))'   # one simulation step of 1/cookRate s per cooked frame, whatever the frame time
+pp.par.rndinputpts = True
+pp.par.createpointprim = False
+STEP = '%sStepsize*%sSpeed*%s' % (P, P, RATE)       # field units per second (per frame x frame rate)
+# velocity from the field texture: rg = direction*0.5+0.5 -> +-step (x scaled by 1/aspect), z = 0
+lk1 = c.create(td.lookuptexturePOP, 'field_to_velocity'); lk1.inputConnectors[0].connect(pp)
+lk1.par.top = field
+lk1.par.lookupindexattr0 = 'P(0)'; lk1.par.lookupindexattr1 = 'P(1)'
+lk1.par.outputattrscope = 'PartVel'; lk1.par.attrnumcomps = 3; lk1.par.channelmask = '7'
+for k, hi in enumerate(('%s/%s' % (STEP, ASP), STEP, '0')):
+    lk1.par['fromlow%d' % k] = 0; lk1.par['fromhigh%d' % k] = 1
+    lk1.par['tolow%d' % k].expr = '-(%s)' % hi; lk1.par['tohigh%d' % k].expr = hi
+# speed by field magnitude: sp = mix(1, max(mag, 0.15), Speedbymag); the Lookup Texture range maps the blue channel (index 2)
+lk2 = c.create(td.lookuptexturePOP, 'field_magnitude'); lk2.inputConnectors[0].connect(lk1)
+lk2.par.top = field
+lk2.par.lookupindexattr0 = 'P(0)'; lk2.par.lookupindexattr1 = 'P(1)'
+lk2.par.channelmask = '4'
+lk2.par.outputattrscope = 'FieldMag'; lk2.par.attrnumcomps = 1
+lk2.par.fromlow2 = 0.15; lk2.par.fromhigh2 = 1
+lk2.par.tolow2.expr = '1-%sSpeedbymag*0.85' % P; lk2.par.tohigh2 = 1
+# velocity *= sp (floored: the magnitude is clamped to >= 0.15);  particles that left the picture are aged out so they respawn
+spd = mcomb('speed_and_bounds', lk2,
+    vecs=[('spfloor', 'float', ['1-%sSpeedbymag*0.85' % P]), ('zero3', 'float3', [0, 0, 0]), ('one3', 'float3', [1, 1, 1]), ('big', 'float', [1000000.0])],
+    combs=[('max', 'FieldMag', 'spfloor', '', 'Sp'),
+           ('mult', 'PartVel', 'Sp', '', 'PartVel'),
+           ('clamp', 'P', 'zero3', 'one3', 'Pin'),
+           ('ne', 'P', 'Pin', '', 'Outv'),
+           ('compmax', 'Outv', '', '', 'Out'),
+           ('aaddbmultc', 'PartAge', 'big', 'Out', 'PartAge')])
+loop.inputConnectors[0].connect(spd)
+
+# ---------------------------------------------------------------- stroke geometry: one instanced quad per particle (Math Combine POP derives the instance data)
+th = '%sLinewidth/%s' % (P, 'parent().par.Resolutionh')
+trT = '%sTrail/%s' % (P, RATE)
+prep = mcomb('stroke_transform', loop,
+    vecs=[('aspv', 'float3', [ASP, 1, 0]), ('cen', 'float3', [0.5, 0.5, 0]), ('trT', 'float', [trT]),
+          ('htT', 'float', [trT + '*0.5']), ('thick', 'float', [th]), ('lo', 'float', [0.0]), ('hi', 'float', [0.12]),
+          ('lo2', 'float', [1.0]), ('hi2', 'float', [0.8]), ('minlife', 'float', [1e-4]), ('ex', 'float3', [1, 0, 0]), ('ey', 'float3', [0, 1, 0]), ('ez', 'float3', [0, 0, 1])],
+    combs=[('mult', 'PartVel', 'aspv', '', 'Vw'),               # velocity in world units (height = 1)
+           ('length', 'Vw', '', '', 'VL'),
+           ('mult', 'VL', 'trT', '', 'SegLen'),                 # stroke length = distance travelled in `Trail` frames
+           ('add', 'SegLen', 'thick', '', 'Sx'),
+           ('atan2', 'Vw(1)', 'Vw(0)', '', 'Ang'),                # stroke direction (degrees)
+           ('mult', 'ez', 'Ang', '', 'Rot'),
+           ('mult', 'ex', 'Sx', '', 'Scx'),                    # instance scale = (length, thickness, 1)
+           ('mult', 'ey', 'thick', '', 'Scy'),
+           ('add', 'Scx', 'Scy', '', 'Scxy'),
+           ('add', 'Scxy', 'ez', '', 'Sc'),
+           ('asubb', 'P', 'cen', '', 'Pc'),
+           ('mult', 'Pc', 'aspv', '', 'Pa'),
+           ('mult', 'Vw', 'htT', '', 'Back'),
+           ('asubb', 'Pa', 'Back', '', 'Pw'),                   # stroke centre = half a stroke behind the particle
+           ('max', 'PartLifeSpan', 'minlife', '', 'LifeSafe'),
+           ('adivb', 'PartAge', 'LifeSafe', '', 'AgeFrac'),
+           ('smoothstep', 'lo', 'hi', 'AgeFrac', 'FadeIn'),
+           ('smoothstep', 'lo2', 'hi2', 'AgeFrac', 'FadeOut'),
+           ('mult', 'FadeIn', 'FadeOut', '', 'AgeFade')])
+
+prep.par.angleunit = 'deg'
+
+# ---- colour: one texture per Colormode, looked up at the particle (image / direction / line by position, age by age)
+satsrc = c.create(td.hsvadjustTOP, 'image_saturation'); satsrc.inputConnectors[0].connect(src)
+satsrc.par.saturationmult.expr = P + 'Saturation'; setres(satsrc); satsrc.par.format = 'rgba16float'
+N = 64
+pal = c.create(td.tableDAT, 'palette_keys'); pal.appendRow(['pos', 'r', 'g', 'b', 'a'])
+import math as _m
+for i in range(N + 1):
+    t = i / N
+    pal.appendRow([t] + [0.5 + 0.5 * _m.cos(6.28318 * (t + o)) for o in (0.0, 0.33, 0.67)] + [1])
+ageramp = c.create(td.rampTOP, 'palette_by_age'); ageramp.par.type = 'horizontal'; ageramp.par.dat = pal
+ageramp.par.outputresolution = 'custom'; ageramp.par.resolutionw = 256; ageramp.par.resolutionh = 4; ageramp.par.format = 'rgba16float'
+wheelramp = c.create(td.rampTOP, 'palette_wheel'); wheelramp.par.type = 'radial'; wheelramp.par.dat = pal
+wheelramp.par.phase = 0.5   # hue = angle/2pi + 0.5, as in the direction palette
+wheelramp.par.outputresolution = 'custom'; wheelramp.par.resolutionw = 256; wheelramp.par.resolutionh = 256; wheelramp.par.format = 'rgba16float'
+dircol = c.create(td.remapTOP, 'palette_by_direction'); dircol.inputConnectors[0].connect(wheelramp); dircol.inputConnectors[1].connect(field)
+dircol.par.resolutionsource = 'input2'; dircol.par.horzsource = 'red'; dircol.par.vertsource = 'green'; dircol.par.format = 'rgba16float'
+linecol = c.create(td.constantTOP, 'line_colour'); linecol.par.alpha = 1
+for ch in 'rgb': linecol.par['color' + ch].expr = P + 'Linecolor' + ch
+linecol.par.outputresolution = 'custom'; linecol.par.resolutionw = 4; linecol.par.resolutionh = 4; linecol.par.format = 'rgba16float'
+colsw = c.create(td.switchTOP, 'colour_source')
+for k, s_ in enumerate((satsrc, dircol, ageramp, linecol)): colsw.inputConnectors[k].connect(s_)
+colsw.par.index.expr = P + 'Colormode.menuIndex'
+lk3 = c.create(td.lookuptexturePOP, 'colour_from_texture'); lk3.inputConnectors[0].connect(prep)
+lk3.par.top = colsw
+lk3.par.lookupindexattr0.expr = "'AgeFrac' if %sColormode.menuIndex==2 else 'P(0)'" % P
+lk3.par.lookupindexattr1 = 'P(1)'
+lk3.par.inputextend0 = 'hold'; lk3.par.inputextend1 = 'hold'
+lk3.par.outputattrscope = 'Color'; lk3.par.attrtype = 'color'; lk3.par.attrnumcomps = 4
+tint = mcomb('colour_fade', lk3, combs=[('mult', 'Color.rgb', 'AgeFade', '', 'Color.rgb')])
+sel_ = c.create(td.nullPOP, 'strokes'); sel_.inputConnectors[0].connect(tint)
+
+# ---------------------------------------------------------------- render the strokes (Geometry COMP instancing the POP -> Render TOP)
 geo = c.create(td.geometryCOMP, 'geo')
 for o in list(geo.children): o.destroy()
 bx = geo.create(td.boxSOP, 'seg'); bx.par.sizex = 1; bx.par.sizey = 1; bx.par.sizez = 0.001
 bx.display = True; bx.render = True
-mat = c.create(td.constantMAT, 'mat'); mat.par.applypointcolor = True
+mat = c.create(td.constantMAT, 'mat')
 geo.par.material = mat
 geo.par.instancing = True; geo.par.instancecountmode = 'oplength'
-geo.par.instanceop = G['inst_t']; geo.par.instancetop = G['inst_t']
-geo.par.instancetx = 'r'; geo.par.instancety = 'g'; geo.par.instancetz = 'b'
-geo.par.instancerop = G['inst_r']; geo.par.instancerx = 'r'; geo.par.instancery = 'g'; geo.par.instancerz = 'b'
-geo.par.instancesop = G['inst_s']; geo.par.instancesx = 'r'; geo.par.instancesy = 'g'; geo.par.instancesz = 'b'
-geo.par.instancecolorop = G['inst_c']; geo.par.instancer = 'r'; geo.par.instanceg = 'g'; geo.par.instanceb = 'b'
+geo.par.instanceop = sel_
+geo.par.instancetx = 'Pw(0)'; geo.par.instancety = 'Pw(1)'; geo.par.instancetz = 'Pw(2)'
+geo.par.instancer = 'Color(0)'; geo.par.instanceg = 'Color(1)'; geo.par.instanceb = 'Color(2)'; geo.par.instancea = 'Color(3)'
+geo.par.instancerx = 'Rot(0)'; geo.par.instancery = 'Rot(1)'; geo.par.instancerz = 'Rot(2)'
+geo.par.instancesx = 'Sc(0)'; geo.par.instancesy = 'Sc(1)'; geo.par.instancesz = 'Sc(2)'
 cam = c.create(td.cameraCOMP, 'cam'); cam.par.projection = 'ortho'; cam.par.tz = 5
 cam.par.orthowidth.expr = ASP
 rt = c.create(td.renderTOP, 'render'); rt.par.camera = cam; rt.par.geometry = geo; rt.par.lights = ''
 setres(rt); rt.par.bgcolora = 0; rt.par.antialias = 'aa2'; rt.par.format = 'rgba16float'
 
-# ---- long-exposure accumulation (feedback) ----
+# ---------------------------------------------------------------- long-exposure accumulation (feedback): acc = acc*Fade + strokes
+# ---------------------------------------------------------------- accumulation and composite stay GLSL (see README: a native version measured >40 % slower)
 za = c.create(td.constantTOP, 'zero_accum'); za.par.colorr = za.par.colorg = za.par.colorb = 0; za.par.alpha = 1; za.par.format = 'rgba32float'; setres(za)
 fba = c.create(td.feedbackTOP, 'fb_accum'); fba.inputConnectors[0].connect(za); fba.par.format = 'rgba32float'; setres(fba)
 ac = glsl(c, 'accum', rd(COMP, 'accum.glsl'), inputs=[fba, rt], fmt='rgba32float', res=True, vecs=[
@@ -261,12 +400,12 @@ ac = glsl(c, 'accum', rd(COMP, 'accum.glsl'), inputs=[fba, rt], fmt='rgba32float
 ])
 fba.par.top = ac
 
-# ---- composite ----
 fin = glsl(c, 'final', rd(COMP, 'final.glsl'), inputs=[ac, src], res=True, vecs=[
     ('uA', [P + 'Exposure', P + 'Compose.menuIndex', P + 'Inputdim', 0]),
 ])
 fin.par.color0name = 'uBg'
 fin.par.color0rgbr.expr = P + 'Bgcolorr'; fin.par.color0rgbg.expr = P + 'Bgcolorg'; fin.par.color0rgbb.expr = P + 'Bgcolorb'
+
 o1 = c.create(td.outTOP, 'out1'); o1.inputConnectors[0].connect(fin)
 o2 = c.create(td.outTOP, 'out2'); o2.inputConnectors[0].connect(field)
 

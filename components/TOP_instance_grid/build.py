@@ -244,21 +244,86 @@ rs.par.outputresolution='custom'; rs.par.resolutionw.expr=P+"Countx"; rs.par.res
 rs.par.filtertype = 'linear' if 'linear' in rs.par.filtertype.menuNames else rs.par.filtertype.val
 rs.inputConnectors[0].connect(sw)
 
-code = rd(COMP,'inst.glsl')
-d = mkdat(c, 'inst_code', code)
-dat = {}
-for i, nm in enumerate(['inst_t','inst_r','inst_s','inst_c']):
-    g = c.create(td.glslTOP, nm)
-    g.par.pixeldat = d
-    g.par.outputresolution='custom'; g.par.resolutionw.expr=P+"Countx"; g.par.resolutionh.expr=P+"County"
-    g.par.format = 'rgba32float'
-    g.par.inputfiltertype = 'nearest' if 'nearest' in g.par.inputfiltertype.menuNames else g.par.inputfiltertype.val
-    g.inputConnectors[0].connect(rs)
-    setu(g, [('uA',[P+"Countx",P+"County",P+"Spacing",i]),
-            ('uB',[P+"Heightamt"+"*(1+"+P+"Modamount*"+MOD('band1')+")",P+"Scaleamt",P+"Rotamt",P+"Basesize"]),
-            ('uC',[P+"Invert",P+"Colormix",P+"Heightbase",0]),
-            ('uD',[LOOKI,P+"Accent",0,0])])
-    dat[nm]=g
+# ---- per-instance data, built from native TOPs. Every pixel of the Countx x County image is one instance ----
+def tiny(o, fmt='rgba32float'):
+    """size an op like the grid (one pixel per instance) and use float pixels"""
+    o.par.outputresolution = 'custom'; o.par.resolutionw.expr = P + "Countx"; o.par.resolutionh.expr = P + "County"
+    o.par.format = fmt
+    o.par.inputfiltertype = 'nearest'
+    return o
+def mk(typ, name, *ins, **pars):
+    o = tiny(c.create(typ, name))
+    for i, s_ in enumerate(ins): o.inputConnectors[i].connect(s_)
+    for k, v in pars.items():
+        if isinstance(v, str) and k.endswith('_expr'): o.par[k[:-5]].expr = v
+        else: o.par[k] = v
+    return o
+def reorder(name, r, g, b, a=None):
+    """Reorder TOP: build RGB from (input TOP, channel) pairs; a defaults to 1"""
+    ins = []
+    for src_, ch in (r, g, b):
+        if src_ not in ins: ins.append(src_)
+    o = tiny(c.create(td.reorderTOP, name))
+    for i, s_ in enumerate(ins): o.inputConnectors[i].connect(s_)
+    for slot, (src_, ch) in zip(('red', 'green', 'blue'), (r, g, b)):
+        o.par['output' + slot] = 'input%d' % (ins.index(src_) + 1)
+        o.par['output' + slot + 'chan'] = ch
+    o.par.outputalpha = 'input1'; o.par.outputalphachan = 'one'
+    return o
+
+# luminance of the picture (0..1, optionally inverted)
+luma = tiny(c.create(td.reorderTOP, 'luma_raw')); luma.inputConnectors[0].connect(rs)
+for sl in ('red', 'green', 'blue'):
+    luma.par['output' + sl] = 'input1'; luma.par['output' + sl + 'chan'] = 'luminance'
+luma.par.outputalpha = 'input1'; luma.par.outputalphachan = 'luminance'   # alpha = luma too, so the Math TOP below can map it as well
+lum = mk(td.levelTOP, 'luma', luma, clampinput=1, invert_expr=P + "Invert")
+# One Math TOP turns the luminance (0..1) into four numbers per instance, each with its own From -> To range (per channel):
+#   R = width   : Basesize, grown by luma when Scaleamt > 0
+#   G = height  : Heightbase + Heightamt * luma   (band1 swells it)
+#   B = rotation: Rotamt * luma * 360 degrees about Y
+#   A = half the height (instances sit on the ground: translate Y = height / 2)
+HAMT = P + "Heightamt*(1+" + P + "Modamount*" + MOD('band1') + ")"
+sets = {'r': ("%sBasesize*(1-0.85*%sScaleamt)" % (P, P), "%sBasesize*(1+0.25*%sScaleamt)" % (P, P)),
+        'g': (P + "Heightbase", P + "Heightbase+" + HAMT),
+        'b': ("0", P + "Rotamt*360"),
+        'a': ("0.5*" + P + "Heightbase", "0.5*(" + P + "Heightbase+" + HAMT + ")")}
+fx = mk(td.mathTOP, 'from_luma', lum)
+for ch, (lo, hi) in sets.items():
+    # the Level TOP's Invert flips RGB but not alpha, so the alpha channel (half height) flips here
+    fx.par['fromrange' + ch + '1'].expr = P + 'Invert' if ch == 'a' else '0'
+    fx.par['fromrange' + ch + '2'].expr = '1-' + P + 'Invert' if ch == 'a' else '1'
+    fx.par['torange' + ch + '1'].expr = lo; fx.par['torange' + ch + '2'].expr = hi
+# towers are never thinner than 0.02 (Maximum against a constant, per channel)
+minc = mk(td.constantTOP, 'min_height', colorr=-1e6, colorg=0.02, colorb=-1e6, alpha=0.01)
+wrh = mk(td.compositeTOP, 'width_height_rot', fx, minc, operand='maximum')
+# grid position: two ramps (left-right = X, bottom-top = Z) scaled to Spacing
+rx = mk(td.rampTOP, 'ramp_x'); rx.par.type = 'horizontal'
+rz = mk(td.rampTOP, 'ramp_z'); rz.par.type = 'vertical'
+SPAN = "0.5*" + P + "Countx*" + P + "Spacing"; SPANZ = "0.5*" + P + "County*" + P + "Spacing"
+posx = mk(td.mathTOP, 'pos_x', rx, fromrange1=0, fromrange2=1, torange1_expr="-" + SPAN, torange2_expr=SPAN)
+posz = mk(td.mathTOP, 'pos_z', rz, fromrange1=0, fromrange2=1, torange1_expr="-" + SPANZ, torange2_expr=SPANZ)
+zero = mk(td.constantTOP, 'zero', colorr=0, colorg=0, colorb=0, alpha=1)
+# instancing: translate = inst_t (x, height/2, z); rotate and scale read channels of width_height_rot directly
+# (rotate Y = blue, scale X/Z = red, scale Y = green); colour = whichever Look branch is selected
+it = reorder('inst_t', (posx, 'red'), (wrh, 'alpha'), (posz, 'red'))
+# colour: Look = original -> picture colour mixed with white by Colormix
+white = mk(td.constantTOP, 'white', colorr=1, colorg=1, colorb=1, alpha=1)
+col_orig = mk(td.crossTOP, 'colour_original', white, rs, cross_expr=P + "Colormix")
+# Look = mono -> bone-white grey ramp from luma, with red on the brightest instances (smoothstep .78-.92 times Accent)
+mono_g = mk(td.mathTOP, 'mono_grey', lum, gain=0.88, postoff=0.12)
+bone = mk(td.constantTOP, 'bone', colorr=0.95, colorg=0.93, colorb=0.88, alpha=1)
+mono_c = mk(td.compositeTOP, 'mono_bone', mono_g, bone, operand='multiply')
+acc0 = mk(td.levelTOP, 'accent_t', lum, inlow=0.78, inhigh=0.92, clampinput=0, clamp=1)
+acc1 = mk(td.mathTOP, 'accent_t2', acc0, postop='square')                       # t*t
+acc2 = mk(td.mathTOP, 'accent_3m2t', acc0, gain=-2.0, postoff=3.0)              # 3-2t
+acc3 = mk(td.compositeTOP, 'accent_smooth', acc1, acc2, operand='multiply')    # smoothstep = t*t*(3-2t)
+acc4 = mk(td.mathTOP, 'accent_amount', acc3, gain_expr=P + "Accent")
+acc5 = reorder('accent_alpha', (acc4, 'red'), (acc4, 'red'), (acc4, 'red'))
+acc5.par.outputalpha = 'input1'; acc5.par.outputalphachan = 'red'
+redc = mk(td.constantTOP, 'accent_red', colorr=0.95, colorg=0.04, colorb=0.04, alpha=1)
+red_l = mk(td.compositeTOP, 'accent_layer', redc, acc5, operand='multiply')
+mono_f = mk(td.compositeTOP, 'colour_mono', red_l, mono_c, operand='over')
+dat = {'inst_t': it}
 
 # geometry
 geo = c.create(td.geometryCOMP, 'geo')
@@ -285,11 +350,11 @@ geo.par.instancecountmode = 'oplength'
 geo.par.instanceop = dat['inst_t']
 geo.par.instancetop = dat['inst_t']
 geo.par.instancetx='r'; geo.par.instancety='g'; geo.par.instancetz='b'
-geo.par.instancerop = dat['inst_r']
-geo.par.instancerx='r'; geo.par.instancery='g'; geo.par.instancerz='b'
-geo.par.instancesop = dat['inst_s']
-geo.par.instancesx='r'; geo.par.instancesy='g'; geo.par.instancesz='b'
-geo.par.instancecolorop = dat['inst_c']
+geo.par.instancerop = wrh
+geo.par.instancerx=''; geo.par.instancery='b'; geo.par.instancerz=''
+geo.par.instancesop = wrh
+geo.par.instancesx='r'; geo.par.instancesy='g'; geo.par.instancesz='r'
+geo.par.instancecolorop.expr = "parent().op('colour_mono') if parent().par.Look=='mono' else parent().op('colour_original')"
 geo.par.instancer='r'; geo.par.instanceg='g'; geo.par.instanceb='b'
 
 tgt = c.create(td.nullCOMP,'target')

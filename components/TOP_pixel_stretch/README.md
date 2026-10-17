@@ -33,3 +33,9 @@ Modulation: `band1` scales `Length` by `1+Modamount*band1`. The old `Mix` is now
 
 ## Demo source
 The built-in preview source lives in a `demo` Base COMP behind a Switch: it is selected only while `in1` is unconnected, so with an input connected it does not cook. There is no Loop page; animation uses absolute time and only exists to make the unconnected preview move.
+
+## Implementation
+
+### Preview source (demo)
+The `demo` COMP used when `in1` is unconnected is built only from native operators, no GLSL: a Noise TOP grain ground, five Circle TOP blobs with highlights and outlines, Circle TOP rings and a rotating Rectangle TOP cross, stacked by a Composite TOP (looping). It sits behind the Switch, so it does not cook when an input is connected.
+

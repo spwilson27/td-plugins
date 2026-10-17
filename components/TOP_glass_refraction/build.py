@@ -197,7 +197,77 @@ add_pars(c, [
     *COMMON,
 ])
 p = lambda n: 'parent().par.' + n
-sw = v2_input(c, COMP)
+# --- native-node helper (pasted into the body of native build.py files) ---
+def nat(c, typ, name, *ins, fmt='rgba16float', **kw):
+    """Create a native op, wire inputs, set pars. A str value starting with '=' is an expression."""
+    o = c.create(getattr(td, typ), name)
+    for i, s in enumerate(ins):
+        if s is not None: o.inputConnectors[i].connect(s)
+    if fmt and hasattr(o.par, 'format'): o.par.format = fmt
+    for k, v in kw.items():
+        p = o.par[k]
+        if isinstance(v, str) and v.startswith('='): p.expr = v[1:]
+        elif isinstance(v, str): p.val = v
+        else: p.val = v
+    return o
+
+P = 'parent().par.'
+F = ' + 0*absTime.frame'
+res_chop(c)
+RWe = "op('res')['w']"; RHe = "op('res')['h']"
+ASP = "(%s/%s)" % (RWe, RHe)
+def sres(o):
+    o.par.outputresolution = 'custom'; o.par.resolutionw.expr = RWe; o.par.resolutionh.expr = RHe; return o
+
+# ---------------- demo (preview only): scrolling bars + grid + orbiting red dot, all native ----------------
+i1 = c.create(td.inTOP, 'in1')
+d = c.create(td.baseCOMP, 'demo')
+d.comment = 'preview-only source (used while in1 is unconnected; does not cook otherwise)'
+def dres(o):
+    o.par.outputresolution = 'custom'; o.par.resolutionw.expr = "op('../res')['w']"; o.par.resolutionh.expr = "op('../res')['h']"; return o
+def dn(typ, name, *ins, **kw): return dres(nat(d, typ, name, *ins, **kw))
+PH = "((absTime.seconds/8.0) % 1.0)"
+TH = "(%s*2*math.pi)" % PH
+# bars: 8 x 14 random cells; each row scrolls at its own whole-cycle speed (Displace TOP driven by a 14-value CHOP)
+cells = nat(d, 'noiseTOP', 'bar_cells', type='randomgpu', mono=True, seed=3, amp=0.5, offset=0.5)
+cells.par.outputresolution = 'custom'; cells.par.resolutionw = 8; cells.par.resolutionh = 14
+on = nat(d, 'thresholdTOP', 'bars_on', cells, threshold=0.35, comparator='less')
+cells_up = dn('resolutionTOP', 'bar_cells_up', on, inputfiltertype='nearest', filtertype='nearest')
+def stripes(name, kind, per, thr, cmpn='less'):
+    r = dn('rampTOP', name + '_ramp', type=kind, period=per, extendleft='repeat', extendright='sameasleft')
+    return dn('thresholdTOP', name, r, threshold=thr, comparator=cmpn)
+seg_x = stripes('bar_length', 'horizontal', 1 / 8.0, 0.2)            # 80 % of each cell is bar
+bars_x = dn('compositeTOP', 'bars_along_row', cells_up, seg_x, operand='multiply')
+speeds = d.create(td.constantCHOP, 'row_speeds')
+for r_ in range(14):
+    getattr(speeds.par, 'name%d' % r_).val = 'r%d' % r_
+    getattr(speeds.par, 'value%d' % r_).val = (1 if r_ % 2 == 0 else -1) * (1 + r_ % 3)
+spd_top = nat(d, 'choptoTOP', 'row_speed_map', chop=speeds)
+spd_up = dn('resolutionTOP', 'row_speed_up', spd_top, inputfiltertype='nearest', filtertype='nearest')
+scroll = dn('displaceTOP', 'scroll_rows', bars_x, spd_up, horzsource='red', vertsource='none', midpointx=0, midpointy=0,
+            displaceweightx="=%s/2" % PH, displaceweighty=0, extend='repeat')
+row_lo = stripes('row_gap_lo', 'vertical', 1 / 14.0, 0.18)
+row_hi = stripes('row_gap_hi', 'vertical', 1 / 14.0, 0.82, 'greater')
+rowm = dn('compositeTOP', 'row_mask', row_lo, row_hi, operand='multiply')
+bars = dn('compositeTOP', 'bars', scroll, rowm, operand='multiply')
+barcol = dn('levelTOP', 'bar_color', bars, brightness1=0.78)
+grid_x = stripes('grid_x', 'horizontal', 1 / 40.0, 0.97); grid_y = stripes('grid_y', 'vertical', 1 / 22.0, 0.97)
+grid = dn('levelTOP', 'grid_lines', dn('compositeTOP', 'grid_sum', grid_x, grid_y, operand='maximum'), brightness1=0.12)
+dotx = "=math.cos(%s)*0.27" % TH; doty = "=math.sin(%s*2)*0.28" % TH
+dot = dn('circleTOP', 'red_dot', radiusx=0.07 * 0.5625, radiusy=0.07 * 0.5625, softness=0.003, centerx=dotx, centery=doty, fillcolorr=2.0, fillcolorg=0.16,
+         fillcolorb=0.1, fillalpha=1, bgalpha=0, bgcolorr=0, bgcolorg=0, bgcolorb=0)
+ring = dn('circleTOP', 'red_ring', radiusx=0.14 * 0.5625, radiusy=0.14 * 0.5625, softness=0.001, centerx=dotx, centery=doty, fillalpha=0, bgalpha=0,
+          borderwidth=0.004, borderr=0.8, borderg=0.08, borderb=0.04, borderalpha=1)
+base = dn('constantTOP', 'dark', colorr=0.02, colorg=0.02, colorb=0.02, alpha=1)
+barc = dn('compositeTOP', 'bars_tinted', barcol, dn('constantTOP', 'bone', colorr=0.92, colorg=0.9, colorb=0.85, alpha=1), operand='multiply')
+sc_base = dn('compositeTOP', 'bars_and_grid', base, barc, grid, operand='add')
+sc2 = dn('compositeTOP', 'scene', dot, ring, sc_base, operand='over')      # first input is on top
+do = d.create(td.outTOP, 'out1'); do.inputConnectors[0].connect(sc2); do.par.label = 'demo source'
+src = nat(c, 'switchTOP', 'src', d.outputConnectors[0], i1)
+src.par.index.expr = "(1 if len(parent().inputConnectors[0].connections) else 0) + 0*absTime.frame"
+sres(src); src.par.format = 'rgba16float'
+
+sw = src
 add_mod(c, 'in2')
 g = glsl(c, 'glass', rd(COMP, 'glass.glsl'), inputs=[sw], res=True, vecs=[
     ('uA', [PEXPR, "%s+%s*%s*0.5" % (p('Ior'), p('Modamount'), MOD('band1')), p('Dispersion'), p('Frost')]),

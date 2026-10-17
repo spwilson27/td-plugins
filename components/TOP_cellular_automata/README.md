@@ -29,3 +29,9 @@ Wireworld: input mask = conductors with a few electron heads; Inject fires heads
 
 ## Notes
 The sim only reseeds on Reset or on first cook; after changing the input, press Reset. No Loop page: the demo animates with absTime and cooks only when `in1` is unconnected.
+
+## Implementation
+
+### Preview source (demo)
+The `demo` COMP used when `in1` is unconnected is built only from native operators, no GLSL: four drifting Circle TOP discs, each with a Circle TOP orbit ring, over a Constant TOP, stacked by a Composite TOP. It sits behind the Switch, so it does not cook when an input is connected.
+

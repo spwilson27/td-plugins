@@ -10,7 +10,7 @@
  "Bloomamount": "Strength of the bloom added from bright areas. 0 = off.",
  "Bloomthreshold": "Brightness above which pixels start to bloom.",
  "Bloomknee": "Softness of the threshold transition. 0 = hard cut.",
- "Bloomsize": "Scale of the bloom blur radii (base 5 to 80 px). Higher = wider bloom.",
+ "Bloomsize": "Scale of the five bloom blur widths (about 1 px up to about 170 px at 1x). Higher = wider bloom.",
  "Glareamount": "Strength of the horizontal anamorphic streak. 0 = off.",
  "Glarelength": "Length of the glare streak as a fraction of image width.",
  "Glaretint": "Colour of the glare streak.",

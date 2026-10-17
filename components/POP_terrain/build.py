@@ -151,29 +151,95 @@ nz.par.period.expr = '8.0/' + P + 'Scale'; nz.par.harmon = 3; nz.par.rough = 0.4
 nz.par.amp = 0.5; nz.par.offset = 0.5; nz.par.mono = True
 nz.par.seed.expr = P + 'Seed'; nz.par.format = 'rgba16float'
 hm = c.create(td.switchTOP, 'hmap')
-hm.inputConnectors[0].connect(nz); hm.inputConnectors[1].connect(i2)
+i2l = c.create(td.reorderTOP, 'in2_luma'); i2l.inputConnectors[0].connect(i2)
+for sl in ('red', 'green', 'blue', 'alpha'):
+    i2l.par['output' + sl] = 'input1'; i2l.par['output' + sl + 'chan'] = 'luminance'
+hm.inputConnectors[0].connect(nz); hm.inputConnectors[1].connect(i2l)
 hm.par.index.expr = "0*absTime.frame + 1 if (%sHeightsource=='input' and len(parent().inputConnectors[1].connections)) else 0" % P
 hm.par.outputresolution = 'useinput' if 'useinput' in hm.par.outputresolution.menuNames else hm.par.outputresolution.val
 
-# ---- displace
-code = mkdat(c, 'displace_code', rd(COMP, 'terrain.glsl'))
-g = c.create(td.glslPOP, 'displace'); g.inputConnectors[0].connect(nin)
-g.par.computedat = code; g.par.outputattrs = 'P'; g.par.attr0name = 'color'
-g.par.sampler0name = 'uTex'; g.par.sampler0top = hm
-g.par.sampler0extendv = 'mirror'
+# ---- shape the heightmap (all native TOPs, 512 x 512 floats) ----
+def T(typ, name, *ins, **pars):
+    o = c.create(typ, name)
+    for i, s_ in enumerate(ins): o.inputConnectors[i].connect(s_)
+    o.par.outputresolution = 'custom'; o.par.resolutionw = 512; o.par.resolutionh = 512; o.par.format = 'rgba16float'
+    for k, v in pars.items():
+        if k.endswith('_expr'): o.par[k[:-5]].expr = v
+        else: o.par[k] = v
+    return o
 SRC_NOISE = "(0 if (%sHeightsource=='input' and len(parent().inputConnectors[1].connections)) else 1)" % P
-g.seq.vec.numBlocks = 2
-vecs = [('uA', [P + 'Height*(1+0.6*' + CH('band1') + '+0.3*' + CH('beat') + ')',
-                'absTime.seconds*' + P + 'Speed*(1+0.5*' + CH('band2') + ')*0.2',
-                "{'smooth':0,'ridged':1,'terraced':2}[%sStyle.eval()]" % P, P + 'Terraces']),
-        ('uB', [P + 'Look.menuIndex', P + 'Accent', SRC_NOISE, 0])]
-for i, (nm, vals) in enumerate(vecs):
-    getattr(g.par, 'vec%dname' % i).val = nm
-    getattr(g.par, 'vec%dtype' % i).val = 'vec4'
+# 1. the heightmap is the brightness of in2 (the internal noise is already grey); only the in2 branch is converted
+# 2. (scrolling is done by the Lookup Texture POP below: it adds the scroll to the v index and mirrors at the edges,
+#     so this whole image only changes when a parameter changes)
+SCROLL = "absTime.seconds*%sSpeed*(1+0.5*%s)*0.2" % (P, CH('band2'))
+# 3. the internal noise is flat, so stretch its contrast (input maps are left alone)
+bst = T(td.levelTOP, 'noise_contrast', hm, clampinput=0, clamp=1,
+        inlow_expr="0.2222 if %s else 0" % SRC_NOISE, inhigh_expr="0.7778 if %s else 1" % SRC_NOISE)
+# 4a. ridged: h -> (1 - |2h - 1|)^2   (Math TOP 'pos' op = absolute value)
+r_u = T(td.mathTOP, 'ridged_2h_minus_1', bst, gain=2, postoff=-1)
+r_a = T(td.mathTOP, 'ridged_abs', r_u, postop='pos')
+r_i = T(td.mathTOP, 'ridged_one_minus', r_a, gain=-1, postoff=1)
+ridged = T(td.mathTOP, 'ridged', r_i, postop='square')
+# 4b. terraced: (floor(h*k) + smoothstep(0.35, 0.65, fract(h*k))) / k
+K = "max(%sTerraces,1)" % P
+t_k = T(td.mathTOP, 'terrace_h_times_k', bst, gain_expr=K)
+t_f = T(td.mathTOP, 'terrace_floor', t_k, integer='floor')
+t_r = T(td.compositeTOP, 'terrace_fract', t_k, t_f, operand='subtract')
+t_t = T(td.levelTOP, 'terrace_edge', t_r, clampinput=0, clamp=1, inlow=0.35, inhigh=0.65)
+t_2 = T(td.mathTOP, 'terrace_t_squared', t_t, postop='square')
+t_3 = T(td.mathTOP, 'terrace_3_minus_2t', t_t, gain=-2, postoff=3)
+t_s = T(td.compositeTOP, 'terrace_smoothstep', t_2, t_3, operand='multiply')
+t_a = T(td.compositeTOP, 'terrace_add', t_f, t_s, operand='add')
+terraced = T(td.mathTOP, 'terraced', t_a, gain_expr="1.0/(%s)" % K)
+style = T(td.switchTOP, 'style', bst, ridged, terraced, outputresolution='useinput', index_expr="{'smooth':0,'ridged':1,'terraced':2}[%sStyle.eval()]" % P)
+hfinal = style
+
+# ---- height and colour per point (POPs) ----
+# Lookup Texture POP: read the map at each point's texture coordinate -> point attribute Hgt
+lk = c.create(td.lookuptexturePOP, 'read_height'); lk.inputConnectors[0].connect(nin)
+lk.par.top = hfinal; lk.par.lookupindexattr0 = 'Tex(0)'; lk.par.lookupindexattr1 = 'Tex(1)'   # u, v of the point's texture coordinate
+lk.par.outputattrscope = 'Hgt'; lk.par.overrideautoattr = True; lk.par.attrnumcomps = 1; lk.par.channelmask = 1   # red channel only
+lk.par.inputextend0 = 'mirror'; lk.par.inputextend1 = 'mirror'
+lk.par.lookupindexoffset1.expr = SCROLL     # scroll: shift v, mirrored at the edges
+# Math Combine POP: one block per step; every step is a Math operation on named attributes / constants
+g = c.create(td.mathcombinePOP, 'displace_and_colour'); g.inputConnectors[0].connect(lk)
+consts = [   # (name, type, values or expressions)
+  ('height',   'float', [P + 'Height*(1+0.6*' + CH('band1') + '+0.3*' + CH('beat') + ')']),
+  ('zero',     'float', [0.0]), ('one', 'float', [1.0]),
+  ('edge0',    'float', [0.0]), ('edge08', 'float', [0.8]), ('edge075', 'float', [0.75]),
+  ('lookmono', 'float', [P + 'Look.menuIndex']),
+  ('accent',   'float', [P + 'Accent']),
+  ('shade_a',  'float', [0.35]), ('shade_b', 'float', [0.9]),
+  ('blue4',    'float4', [0.10, 0.30, 0.55, 1.0]), ('bone4', 'float4', [0.95, 0.90, 0.80, 1.0]),
+  ('grey0',    'float4', [0.2, 0.2, 0.2, 1.0]), ('white4', 'float4', [1.0, 1.0, 1.0, 1.0]),
+  ('red4',     'float4', [1.0, 0.10, 0.05, 1.0]), ('black4', 'float4', [0.0, 0.0, 0.0, 1.0]),
+]
+g.seq.vec.numBlocks = len(consts)
+for i, (nm, ty, vals) in enumerate(consts):
+    g.par['vec%dname' % i] = nm; g.par['vec%dtype' % i] = ty
     for j, v in enumerate(vals):
-        p = getattr(g.par, 'vec%dvalue%s' % (i, 'xyzw'[j]))
-        if isinstance(v, str): p.expr = v
-        else: p.val = v
+        pp_ = g.par['vec%dvalue%d' % (i, j)]
+        if isinstance(v, str): pp_.expr = v
+        else: pp_.val = v
+steps = [   # (operation, A, B, C, result): every line is one block of the Math Combine POP
+  ('mult',       'Hgt',    'height',   '',        'Hs'),      # displacement = map value * Height
+  ('amultbaddc', 'N',      'Hs',       'P',       'P'),       # P = N * displacement + P  (move along the normal)
+  ('clamp',      'Hgt',    'zero',     'one',     'Hc'),       # t = height clamped to 0..1
+  ('smoothstep', 'edge0',  'edge08',   'Hc',       'Blend'),      # blue -> bone blend
+  ('mix',        'blue4',  'bone4',    'Blend',      'ColOrig'), # Look = original
+  ('mix',        'grey0',  'white4',   'Hc',       'ColMono'), # Look = mono (0.2 .. 1 grey)
+  ('mix',        'ColOrig','ColMono',  'lookmono','ColPick'),     # pick by Look
+  ('smoothstep', 'edge075','one',      'Hc',       'AccentT'),      # red accent on the peaks
+  ('mult',       'AccentT',     'accent',   '',        'AccentAmt'),
+  ('mix',        'ColPick',    'red4',     'AccentAmt',     'ColAccent'),
+  ('amultbaddc', 'Hc',      'shade_b',  'shade_a', 'Shade'),   # 0.35 + 0.9 t
+  ('mix',        'black4', 'ColAccent',     'Shade',   'Color'),   # Color = Col2 * Shade (alpha stays 1)
+]
+g.seq.comb.numBlocks = len(steps)
+for i, (opn, a_, b_, c_, r_) in enumerate(steps):
+    g.par['comb%doper' % i] = opn
+    g.par['comb%dscopea' % i] = a_; g.par['comb%dscopeb' % i] = b_; g.par['comb%dscopec' % i] = c_
+    g.par['comb%dresult' % i] = r_
 nout = c.create(td.normalPOP, 'normals_out'); nout.inputConnectors[0].connect(g)
 o1 = c.create(td.outPOP, 'out1'); o1.inputConnectors[0].connect(nout)
 

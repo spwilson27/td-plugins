@@ -2,7 +2,7 @@ exec(open(__import__('os').path.expanduser('~/software/td-plugins/snippets/src/_
 s = begin('TOP_dof_motionblur')
 
 # 1. DOF on a photo with a radial depth map
-ex = example(s, 1, 'Depth of field on a photo', 'Movie File In (Jellybeans) -> in1, Ramp TOP (radial) -> in2 as a depth map (0 near, 1 far).\nFocus picks the sharp depth, Range its thickness, Maxblur the bokeh size.\nBlades gives a polygon aperture; Boost makes bright points bloom into bokeh discs.\nTurn on Showdepth / Showcoc to see what the effect thinks is in focus.')
+ex = example(s, 1, 'Depth of field on a photo', 'Movie File In (Jellybeans) -> in1, Ramp TOP (radial) -> in2 as a depth map (0 near, 1 far).\nFocus picks the sharp depth, Range its thickness, Maxblur the bokeh size.\nBlades switches between a soft round blur and a hard-edged (box) blur.\nTurn on Showdepth / Showcoc to see what the effect thinks is in focus.')
 m = ex.create(moviefileinTOP, 'photo'); m.par.file.expr = sample_expr('Map/Jellybeans.1.jpg')
 d = ex.create(rampTOP, 'depth'); d.par.type = 'radial'
 d.par.outputresolution = 'custom'; d.par.resolutionw = 1280; d.par.resolutionh = 720

@@ -33,3 +33,13 @@ The material itself is `MAT_molten/mat` (GLSL MAT). Assign it to your Geometry C
 
 ## Snippets
 `snippets/MAT_molten.tox` (About > Snippets): 3 examples, each applying `MAT_molten/mat` to a Geometry COMP with Camera, Light and Render TOP, plus parameter recipes and CHOP modulation.
+
+## Implementation
+The material itself (`mat`) is still a GLSL MAT. This was checked, not assumed:
+- The shader relies on: 3D voronoi crack network (orbiting feature points, F2-F1 edges) evaluated at the object-space position of every fragment, with a 3D domain warp. None of that exists as a built-in operator that can run per fragment in object space.
+- A native PBR MAT driven by procedural map TOPs needs either UVs or its "Triplanar" texture sampling mode. Triplanar mode appears to sample in *world* space (probed: the pattern did not follow a sphere rotated 90 degrees, and the mode has no scale parameter), so the texture would swim over moving geometry, and the preview geometry (a Script SOP knot) and many user meshes carry no UVs. The material is meant to be dropped on arbitrary geometry and to move with it, so object space is required.
+- Native replacements would also change the look: the Noise TOP is 2D, so a 3D flowing network would be baked into a few tiling maps.
+
+What is native: the whole preview chain except the tonemap pass. The `bright` bloom pass is a Level TOP (1..2 mapped to 0..1, negatives clamped = max(colour-1, 0)), the blooms are Blur TOPs, the geometry is Sphere/Script SOPs + Geometry COMPs + Render TOP, and the modulation comes in through a Merge CHOP. `tonemap` stays a small GLSL TOP: ACES filmic curve, gamma, vignette background and three-way composite in one pass (preview chrome only; the native equivalent is roughly ten TOPs for no gain).
+
+Bench: not applicable to the material (the shader and its inputs are unchanged, only the preview bright pass changed from GLSL to a Level TOP, and the preview is not cooked unless it is viewed).

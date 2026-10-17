@@ -33,3 +33,9 @@ Note: with a custom in1 the source is sampled in a circle (radius 0.5 of height 
 
 ## Demo source
 The built-in preview source lives in a `demo` Base COMP behind a Switch: it is selected only while `in1` is unconnected, so with an input connected it does not cook. There is no Loop page; animation uses absolute time and only exists to make the unconnected preview move.
+
+## Implementation
+
+### Preview source (demo)
+The `demo` COMP used when `in1` is unconnected is built only from native operators, no GLSL: a Constant TOP ground, Circle TOP rings, Rectangle TOP bars/frame/tick marks and a Circle TOP marker, stacked by a Composite TOP (looping with the animation phase). It sits behind the Switch, so it does not cook when an input is connected.
+

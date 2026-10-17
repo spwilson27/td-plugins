@@ -194,12 +194,80 @@ add_pars(c, [
     ('Modamount', 'float', 0.5, 0, 2),
     *COMMON,
 ])
+# ---- native demo helpers: Constant / Ramp / Noise / Circle / Rectangle / Composite TOPs (no GLSL) ----
+def nd_set(o, **kw):
+    for k, v in kw.items():
+        if isinstance(v, str) and v.startswith('='): o.par[k].expr = v[1:]
+        else: o.par[k] = v
+    return o
+def nd_res(o, W, H):
+    o.par.outputresolution = 'custom'; o.par.format = 'rgba16float'
+    for k, v in (('resolutionw', W), ('resolutionh', H)):
+        if isinstance(v, str): o.par[k].expr = v
+        else: o.par[k] = v
+    return o
+def nd_s(v, W, H):
+    """Lengths below are in units of the picture HEIGHT (centre = 0); Circle/Rectangle 'fractionaspect' units are relative to the WIDTH, so scale by H/W."""
+    if not isinstance(W, str) and not isinstance(H, str): return v * H / W if not isinstance(v, str) else '=(%s)*%s' % (v[1:], H / W)
+    return '=(%s)*(%s)/(%s)' % (v[1:] if isinstance(v, str) else repr(v), H, W)
+def nd_const(d, name, W, H, col, alpha=1):
+    o = d.create(td.constantTOP, name); nd_res(o, W, H)
+    return nd_set(o, colorr=col[0], colorg=col[1], colorb=col[2], alpha=alpha)
+def nd_ramp(d, name, W, H, stops, kind='vertical'):
+    """stops: [(pos, (r,g,b)), ...]"""
+    t = d.create(td.tableDAT, name + '_stops'); t.clear()
+    t.appendRow(['pos', 'r', 'g', 'b', 'a'])
+    for p, c in stops: t.appendRow([p, c[0], c[1], c[2], 1])
+    o = d.create(td.rampTOP, name); nd_res(o, W, H); o.par.type = kind; o.par.dat = t
+    return o
+def nd_circle(d, name, W, H, cx, cy, r, col, soft=0.003, ring=0, alpha=1.0, **kw):
+    """cx, cy, r in 'fraction (aspect)' units (screen height = 1, centre = 0); ring > 0 draws an outline instead of a disc."""
+    o = d.create(td.circleTOP, name); nd_res(o, W, H)
+    nd_set(o, centerunit='fractionaspect', radiusunit='fractionaspect', softnessunit='fractionaspect', borderwidthunit='fractionaspect',
+           centerx=nd_s(cx, W, H), centery=nd_s(cy, W, H), radiusx=nd_s(r, W, H), radiusy=nd_s(r, W, H), softness=nd_s(soft, W, H), bgalpha=0, **kw)
+    if ring:
+        nd_set(o, fillalpha=0, borderwidth=nd_s(ring, W, H), borderr=col[0], borderg=col[1], borderb=col[2], borderalpha=alpha)
+    else:
+        nd_set(o, fillcolorr=col[0], fillcolorg=col[1], fillcolorb=col[2], fillalpha=alpha, borderalpha=0)
+    return o
+def nd_rect(d, name, W, H, cx, cy, sx, sy, col, rot=0, soft=0.002, alpha=1.0, **kw):
+    o = d.create(td.rectangleTOP, name); nd_res(o, W, H)
+    return nd_set(o, centerunit='fractionaspect', sizeunit='fractionaspect', softnessunit='fractionaspect', centerx=nd_s(cx, W, H), centery=nd_s(cy, W, H), sizex=nd_s(sx, W, H), sizey=nd_s(sy, W, H), rotate=rot,
+                  softness=nd_s(soft, W, H), bgalpha=0, fillcolorr=col[0], fillcolorg=col[1], fillcolorb=col[2], fillalpha=alpha, borderalpha=0, **kw)
+def nd_over(d, name, W, H, layers, operand='over'):
+    o = d.create(td.compositeTOP, name); nd_res(o, W, H); o.par.operand = operand
+    for l in reversed(layers): l.outputConnectors[0].connect(o)   # Composite: first input is on top, so connect the topmost layer first
+    return o
+def nd_pick(a, b, cond):
+    """per-channel expression: colour a when cond == 0, colour b when cond == 1 (cond is a 0..1 expression string)"""
+    return ['=%r+(%r-%r)*(%s)' % (x, y, x, cond) for x, y in zip(a, b)]
+
+def _nd_demo(demo, W, H):
+    """Looping preview source from native TOPs: monochrome frame, rings, bars and tick marks with a red marker orbiting."""
+    import math
+    ph = "(2*math.pi*absTime.seconds*parent(2).par.Speed/8.0)"
+    lay = [nd_const(demo, 'ground', W, H, (0.02, 0.02, 0.02))]
+    for j in range(1, 5):   # concentric rings
+        lay.append(nd_circle(demo, 'ring%d' % j, W, H, 0, 0, j * 0.11, (0.45, 0.45, 0.45), ring=0.006, soft=0.003, alpha=0.6))
+    for j in range(9):      # bars on the left
+        lay.append(nd_rect(demo, 'bar%d' % j, W, H, -0.2, -0.2 + j * 0.05, 0.24, 0.025, (0.6, 0.6, 0.6)))
+    fr = demo.create(td.rectangleTOP, 'frame'); nd_res(fr, W, H)
+    nd_set(fr, centerunit='fractionaspect', sizeunit='fractionaspect', borderwidthunit='fractionaspect', softnessunit='fractionaspect',
+           sizex=nd_s(0.6, W, H), sizey=nd_s(0.6, W, H), fillalpha=0, borderwidth=nd_s(0.02, W, H), borderr=0.92, borderg=0.9, borderb=0.84, borderalpha=1,
+           bgalpha=0, softness=nd_s(0.002, W, H))
+    lay.append(fr)
+    for j in range(12):     # tick marks around the frame
+        ang = 2 * math.pi * (j + 0.5) / 12
+        lay.append(nd_rect(demo, 'tick%d' % j, W, H, 0.38 * math.cos(ang), 0.38 * math.sin(ang), 0.012, 0.04, (0.9, 0.9, 0.9), rot=math.degrees(ang) + 90 - 90 + 0))
+    lay.append(nd_circle(demo, 'marker', W, H, "=0.17*math.cos(%s)" % ph, "=0.17*math.sin(%s)" % ph, 0.035, (1.0, 0.08, 0.04), soft=0.004))
+    return nd_over(demo, 'comp', W, H, lay)
+
 # animation phase (unwrapped; 1.0 == 8 s at Speed 1). Only makes the preview example move.
 PH = "(absTime.seconds*parent().par.Speed/8.0)"
 res_chop(c)
 i1 = c.create(td.inTOP, 'in1')
 dm = new_demo(c)
-d = glsl(dm, 'defsrc', rd(COMP, 'src.glsl'), vecs=[('uT', ["absTime.seconds*parent(2).par.Speed/8.0", 0, 0, 0])], res=True)
+d = _nd_demo(dm, "op('../res')['w']", "op('../res')['h']")
 demo_out(dm, d)
 src = c.create(td.switchTOP, 'src')
 src.inputConnectors[0].connect(dm.outputConnectors[0]); src.inputConnectors[1].connect(i1)

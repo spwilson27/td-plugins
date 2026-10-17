@@ -26,3 +26,9 @@ Sorting is an iterative odd-even transposition sort: a Feedback TOP holds the st
 
 ## Demo source
 The built-in preview source lives in a `demo` Base COMP behind a Switch: it is selected only while `in1` is unconnected, so with an input connected it does not cook. There is no Loop page; animation uses absolute time and only exists to make the unconnected preview move.
+
+## Implementation
+
+### Preview source (demo)
+The `demo` COMP used when `in1` is unconnected is built only from native operators, no GLSL: a Noise TOP grain ground, six Circle TOP discs with highlight and halo rings, Rectangle TOP bar and scan line, and a Ramp TOP strip masked by a Rectangle TOP, stacked by Composite TOPs (looping). It sits behind the Switch, so it does not cook when an input is connected.
+

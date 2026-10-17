@@ -126,20 +126,52 @@ nz.par.period.expr = "1.0 / max(parent().par.Curlscale, 1e-3)"
 nz.par.harmon = 0
 nz.par.t4d.expr = "absTime.seconds*parent().par.Curlspeed"
 
-cd = c.create(td.textDAT, 'color_glsl'); cd.text = rd('color.glsl')
-gl = c.create(td.glslPOP, 'color')
-gl.inputConnectors[0].connect(nz)
-gl.par.computedat = cd
-gl.par.outputattrs = ''
-gl.par.attr0name = 'color'
-gl.seq.vec.numBlocks = 2
-gl.par.vec0name = 'uColor'
-gl.par.vec1name = 'uColorEnd'
-gl.par.vec0type = 'vec4'; gl.par.vec1type = 'vec4'
-for i, n in enumerate(('Color', 'Colorend')):
-    for j, ch in enumerate('rgb'):
-        getattr(gl.par, f'vec{i}value' + 'xyz'[j]).expr = f"parent().par.{n}{ch}"
-    getattr(gl.par, f'vec{i}valuew').val = 1
+# ---- colour: native. Two numbers per particle (age fraction t, speed) index a small 2D lookup image:
+#      x = t (birth -> death), y = speed (0 .. 8).  Lookup Texture POP reads the Color from it.
+import math as _m
+def _ss(a, b, x):
+    t = min(1.0, max(0.0, (x - a) / (b - a))); return t * t * (3 - 2 * t)
+KEYS = 129
+tab = c.create(td.tableDAT, 'age_curve')
+tab.clear()
+for i in range(KEYS):
+    x = i / (KEYS - 1.0)
+    grad = _ss(0.0, 1.0, x)                                     # birth colour -> death colour, smoothstep
+    alpha = _ss(0.0, 0.05, x) * (1.0 - _ss(0.65, 1.0, x))       # fade in at birth, fade out at the end
+    tab.appendRow([x, grad, grad, grad, alpha])
+tabf = c.create(td.tableDAT, 'speed_curve')
+tabf.clear()
+for i, (x, v) in enumerate(((0.0, 0.6), (0.7142857, 1.4), (1.0, 1.4))):   # 0.6 + 0.4*clamp(speed*0.35, 0, 2), speed = y*8
+    tabf.appendRow([x, v, v, v, 1])
+rg = c.create(td.rampTOP, 'age_ramp'); rg.par.dat = tab; rg.par.type = 'horizontal'
+rg.par.outputresolution = 'custom'; rg.par.resolutionw = 512; rg.par.resolutionh = 64; rg.par.format = 'rgba32float'
+rg.par.interpnotches = 'linear'; rg.par.premultrgbbyalpha = 0   # alpha is a separate fade curve, keep colour un-premultiplied
+lv = c.create(td.levelTOP, 'birth_to_death_colour'); lv.inputConnectors[0].connect(rg)
+for k, ch in enumerate('rgb'):
+    lv.par['low' + ch].expr = "parent().par.Color" + ch
+    lv.par['high' + ch].expr = "parent().par.Colorend" + ch
+lv.par.format = 'rgba32float'
+rs_ = c.create(td.rampTOP, 'speed_ramp'); rs_.par.dat = tabf; rs_.par.type = 'vertical'
+rs_.par.outputresolution = 'custom'; rs_.par.resolutionw = 512; rs_.par.resolutionh = 64; rs_.par.format = 'rgba32float'
+rs_.par.interpnotches = 'linear'; rs_.par.premultrgbbyalpha = 0
+lut = c.create(td.compositeTOP, 'colour_lut'); lut.par.operand = 'multiply'
+lut.inputConnectors[0].connect(lv); lut.inputConnectors[1].connect(rs_)
+lut.par.outputresolution = 'custom'; lut.par.resolutionw = 512; lut.par.resolutionh = 64; lut.par.format = 'rgba32float'
+
+# per-particle numbers: AgeFrac = age / lifespan, Speed = |velocity| / 8 (the Pre step scales the velocity first)
+prep = c.create(td.mathcombinePOP, 'age_and_speed')
+prep.inputConnectors[0].connect(nz)
+prep.seq.pre.numBlocks = 1
+prep.par.pre0scope = 'PartVel'; prep.par.pre0mult0 = 0.125; prep.par.pre0resultscope = 'VelScaled'      # speed range 0..8 -> 0..1
+prep.seq.comb.numBlocks = 2
+prep.par.comb0oper = 'adivb'; prep.par.comb0scopea = 'PartAge'; prep.par.comb0scopeb = 'PartLifeSpan'; prep.par.comb0result = 'AgeFrac'
+prep.par.comb1oper = 'length'; prep.par.comb1scopea = 'VelScaled'; prep.par.comb1result = 'Speed'
+gl = c.create(td.lookuptexturePOP, 'colour_from_age')
+gl.inputConnectors[0].connect(prep)
+gl.par.top = lut
+gl.par.lookupindexattr0 = 'AgeFrac'; gl.par.lookupindexattr1 = 'Speed'
+gl.par.inputextend0 = 'hold'; gl.par.inputextend1 = 'hold'
+gl.par.outputattrscope = 'Color'; gl.par.attrnumcomps = 4; gl.par.attrtype = 'color'
 null_loop.inputConnectors[0].connect(gl)
 
 o1 = c.create(td.nullPOP, 'out1'); o1.inputConnectors[0].connect(null_loop)

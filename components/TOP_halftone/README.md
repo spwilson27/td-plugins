@@ -31,3 +31,9 @@ Limitations: ASCII ramp is fixed at 10 glyphs; font must exist on the machine (f
 
 ## Demo source
 With nothing connected to `in1` the component shows a built-in animated test source. It lives in the `demo` Base COMP and is selected by a Switch TOP only while `in1` is unconnected; with an input connected nothing inside `demo` cooks. The component has no Loop page or loop parameters: animation uses absolute time and only exists to make the preview move. Output is warning-free with nothing connected, with `in1` connected, and with all inputs connected.
+
+## Implementation
+
+### Preview source (demo)
+The `demo` COMP used when `in1` is unconnected is built only from native operators, no GLSL: a Constant TOP ground, a Rectangle TOP bar and five Circle TOP discs with bright cores, stacked by a Composite TOP; Look = Mono and Accent switch the palette through parameter expressions. It sits behind the Switch, so it does not cook when an input is connected.
+

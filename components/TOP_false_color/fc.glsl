@@ -1,26 +1,18 @@
-// false-color. in0 = image, in1 = driver (luminance source: image itself or in2 depth)
+// false-color. in0 = image, in1 = driver (luminance source: image itself or in2 depth), in2 = palette strip (native Ramp TOPs)
 uniform vec4 uP;   // phase, loop sec, frames/loop
 uniform vec4 uA;   // x map(0 thermal,1 xray,2 night,3 custom), y gain, z bias, w invert
 uniform vec4 uB;   // x edges, y noise, z isotherms, w mix with original
 uniform vec4 uC;   // x crosshair, y legend, z target x, w target y
 uniform vec4 uD;   // rgb hud color
 uniform vec4 uE;   // rgb edge color
-uniform vec4 uF, uG, uH; // custom gradient a, b, c
 out vec4 fragColor;
 const float TAU=6.2831853;
 float h21(vec2 p){ vec3 p3=fract(vec3(p.xyx)*.1031); p3+=dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
 float luma(vec3 c){ return dot(c,vec3(.299,.587,.114)); }
 float D(vec2 uv){ return luma(texture(sTD2DInputs[1],uv).rgb); }
-vec3 ramp(float t, vec3 a, vec3 b, vec3 c, vec3 d, vec3 e){
-  t=clamp(t,0.,1.)*4.;
-  if(t<1.) return mix(a,b,t); if(t<2.) return mix(b,c,t-1.); if(t<3.) return mix(c,d,t-2.); return mix(d,e,t-3.);
-}
+// palette = in2: a 1024x1 gradient made by native Ramp TOPs (thermal / x-ray / night / custom), picked by the Map parameter
 vec3 mapcol(float l, int m, vec2 uv){
-  l=clamp(l,0.,1.);
-  if(m==0) return ramp(l,vec3(0.),vec3(.18,.0,.35),vec3(.85,.05,.1),vec3(1.,.65,.05),vec3(1.,1.,.9));
-  if(m==1){ float x=pow(l,.8); return mix(vec3(0.),vec3(.12,.3,.45),smoothstep(0.,.5,x))+vec3(.6,.8,.95)*smoothstep(.45,1.,x); }
-  if(m==2){ return vec3(.04,1.,.22)*pow(l,.75)+vec3(.03,.2,.05)*l; }
-  float t=l*2.; return t<1.?mix(uF.rgb,uG.rgb,t):mix(uG.rgb,uH.rgb,t-1.);
+  return texture(sTD2DInputs[2], vec2(.0005+.999*clamp(l,0.,1.),.5)).rgb;
 }
 // tiny line/segment helper
 float seg(vec2 p, vec2 a, vec2 b, float w){ vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.); return smoothstep(w,w*.4,length(pa-ba*h)); }

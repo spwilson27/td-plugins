@@ -101,6 +101,27 @@ def report(c):
         for k, s in (('err', o.errors()), ('warn', o.warnings()), ('script', o.scriptErrors())):
             if s: print(k, o.path, s[:300])
 
+def mcomb(c, name, src, consts, steps, angle='rad', delete=''):
+    """Math Combine POP built from plain data.  consts: [(name, 'float'|'float3', [number or expression string, ...])]
+    steps: [(operation, A, B, C, result attribute)]: each step reads attributes/constants and writes one attribute."""
+    mc = c.create(td.mathcombinePOP, name)
+    if src is not None: mc.inputConnectors[0].connect(src)
+    mc.par.angleunit = angle
+    mc.seq.vec.numBlocks = len(consts)
+    for k, (nm, ty, vals) in enumerate(consts):
+        getattr(mc.par, 'vec%dname' % k).val = nm; getattr(mc.par, 'vec%dtype' % k).val = ty
+        for q, v in enumerate(vals):
+            p_ = getattr(mc.par, 'vec%dvalue%d' % (k, q))
+            if isinstance(v, str): p_.expr = v
+            else: p_.val = v
+    mc.seq.comb.numBlocks = len(steps)
+    for k, (op_, a_, b_, c_, res) in enumerate(steps):
+        getattr(mc.par, 'comb%doper' % k).val = op_
+        getattr(mc.par, 'comb%dscopea' % k).val = a_; getattr(mc.par, 'comb%dscopeb' % k).val = b_
+        getattr(mc.par, 'comb%dscopec' % k).val = c_; getattr(mc.par, 'comb%dresult' % k).val = res
+    if delete: mc.par.delattrs = delete
+    return mc
+
 COMP = 'POP_mesh_deformer'
 name = COMP
 c = new_comp(name)
@@ -189,21 +210,48 @@ for i, (nm, base, md) in enumerate(amts):
     getattr(fin.par, 'value%d' % i).expr = "%s + %s" % (base, md)
 def F(n): return "op('final')['%s']" % n
 
-# ---- deform
-dd = mkdat(c, 'deform_code', rd(name, 'deform.glsl'))
-g = c.create(td.glslPOP, 'deform'); g.inputConnectors[0].connect(n0)
-g.par.computedat = dd; g.par.outputattrs = 'P'
-g.seq.vec.numBlocks = 3
-for i, (nm, vals) in enumerate([('uA',[F('twist'),F('bend'),F('inflate'),F('noise')]),
-                                ('uB',[F('ripple'), ang, P+'Noisefreq', P+'Ripplefreq']),
-                                ('uC',[P+'Ripplecycles', P+'Noisecycles', 0, 0])]):
-    getattr(g.par, 'vec%dname' % i).val = nm
-    getattr(g.par, 'vec%dtype' % i).val = 'vec4'
-    for j, v in enumerate(vals):
-        p = getattr(g.par, 'vec%dvalue%s' % (i, 'xyzw'[j]))
-        if isinstance(v, str): p.expr = v
-        else: p.val = v
-n1 = c.create(td.normalPOP, 'normals_out'); n1.inputConnectors[0].connect(g)
+# ---- deform: built from native POPs (noise/ripple/inflate, then twist, bend)
+# noise shell: 3D noise (2 octaves) written to the point attribute 'nv'. It travels on a circle in noise space so it loops.
+nz = c.create(td.noisePOP, 'noise_shell'); nz.inputConnectors[0].connect(n0)
+nz.par.type = 'simplex3d'; nz.par.harmon = 2; nz.par.spread = 2.1; nz.par.gain = 0.5
+nz.par.period.expr = "2.0/%sNoisefreq" % P
+nz.par.amp0 = 1; nz.par.combineop = 'none'; nz.par.noise = True; nz.par.noiseoutputattrscope = 'nv'
+nth = "%s*%sNoisecycles" % (ang, P)
+nz.par.tx.expr = "0.45*math.cos(%s)" % nth; nz.par.ty.expr = "0.45*math.sin(%s)" % nth
+nz.par.tz.expr = "0.45*0.37*math.cos(2*%s)" % nth
+# one Math Combine POP does all the arithmetic, as a list of steps:
+#  1. ripples (sin of the distance from the top pole, fading out), inflate and noise, summed into one push along the normal:
+#     P += N * (ripple wave * fade * Ripple*0.25 + Inflate*0.5 + noise attr * 0.44 * Noiseshell)
+#  2. twist about Y:  rotate (x, z) by Twist * y
+#  3. bend: rotate (x, y) by Bend * x, so the shape curls
+mc = mcomb(c, 'deform', nz,
+  [('pole', 'float3', [0, 1, 0]), ('ripplefreq', 'float', [P+'Ripplefreq']),
+   ('ripplephase', 'float', ["-%s*%sRipplecycles" % (ang, P)]), ('ripplefade', 'float', [-0.25]),
+   ('rippleamp', 'float', [F('ripple') + "*0.25"]), ('inflateamt', 'float', [F('inflate') + "*0.5"]),
+   ('noiseamp', 'float', ["0.44*" + F('noise')]),
+   ('twistamt', 'float', [F('twist')]), ('bendamt', 'float', [F('bend')])],
+  [('asubb', 'P', 'pole', '', 'fromPole'),          # vector from the pole to the point
+   ('length', 'fromPole', '', '', 'dist'),          # distance to the pole
+   ('amultbaddc', 'dist', 'ripplefreq', 'ripplephase', 'wavearg'),
+   ('sin', 'wavearg', '', '', 'wave'),
+   ('mult', 'dist', 'ripplefade', '', 'fadearg'),
+   ('exp', 'fadearg', '', '', 'fade'),
+   ('mult', 'wave', 'fade', '', 'ripple'),
+   ('amultbaddc', 'ripple', 'rippleamp', 'inflateamt', 'pushA'),
+   ('amultbaddc', 'nv', 'noiseamp', 'pushA', 'push'),
+   ('aaddbmultc', 'P', 'N', 'push', 'P'),
+   # twist: angle = Twist * y;  x' = x cos a + z sin a,  z' = z cos a - x sin a
+   ('mult', 'P.y', 'twistamt', '', 'tangle'), ('cos', 'tangle', '', '', 'tc'), ('sin', 'tangle', '', '', 'ts'), ('negatea', 'ts', '', '', 'nts'),
+   ('mult', 'P.x', 'tc', '', 'xtc'), ('aaddbmultc', 'xtc', 'P.z', 'ts', 'twx'),
+   ('mult', 'P.z', 'tc', '', 'ztc'), ('aaddbmultc', 'ztc', 'P.x', 'nts', 'twz'),
+   ('copya', 'twx', '', '', 'P.x'), ('copya', 'twz', '', '', 'P.z'),
+   # bend: angle = Bend * x;  x' = x cos b + y sin b,  y' = y cos b - x sin b
+   ('mult', 'P.x', 'bendamt', '', 'bangle'), ('cos', 'bangle', '', '', 'bc'), ('sin', 'bangle', '', '', 'bs'), ('negatea', 'bs', '', '', 'nbs'),
+   ('mult', 'P.x', 'bc', '', 'xbc'), ('aaddbmultc', 'xbc', 'P.y', 'bs', 'bnx'),
+   ('mult', 'P.y', 'bc', '', 'ybc'), ('aaddbmultc', 'ybc', 'P.x', 'nbs', 'bny'),
+   ('copya', 'bnx', '', '', 'P.x'), ('copya', 'bny', '', '', 'P.y')],
+  delete='fromPole dist wavearg wave fadearg fade ripple pushA push tangle tc ts nts xtc twx ztc twz bangle bc bs nbs xbc bnx ybc bny nv')
+n1 = c.create(td.normalPOP, 'normals_out'); n1.inputConnectors[0].connect(mc)
 o1 = c.create(td.nullPOP, 'out1'); o1.comment = 'deformed mesh'; o1.inputConnectors[0].connect(n1)
 
 # ---- internal preview render (studio chrome)

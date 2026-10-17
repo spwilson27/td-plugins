@@ -158,6 +158,87 @@ def add_mod(c, name):
 def MOD(ch, default=0):
     return "(op('modin')['%s'].eval() if (op('modin') and op('modin').numChans and op('modin')['%s'] is not None) else %s)" % (ch, ch, default)
 
+# ---- native demo helpers: Constant / Ramp / Noise / Circle / Rectangle / Composite TOPs (no GLSL) ----
+def nd_set(o, **kw):
+    for k, v in kw.items():
+        if isinstance(v, str) and v.startswith('='): o.par[k].expr = v[1:]
+        else: o.par[k] = v
+    return o
+def nd_res(o, W, H):
+    o.par.outputresolution = 'custom'; o.par.format = 'rgba16float'
+    for k, v in (('resolutionw', W), ('resolutionh', H)):
+        if isinstance(v, str): o.par[k].expr = v
+        else: o.par[k] = v
+    return o
+def nd_s(v, W, H):
+    """Lengths below are in units of the picture HEIGHT (centre = 0); Circle/Rectangle 'fractionaspect' units are relative to the WIDTH, so scale by H/W."""
+    if not isinstance(W, str) and not isinstance(H, str): return v * H / W if not isinstance(v, str) else '=(%s)*%s' % (v[1:], H / W)
+    return '=(%s)*(%s)/(%s)' % (v[1:] if isinstance(v, str) else repr(v), H, W)
+def nd_const(d, name, W, H, col, alpha=1):
+    o = d.create(td.constantTOP, name); nd_res(o, W, H)
+    return nd_set(o, colorr=col[0], colorg=col[1], colorb=col[2], alpha=alpha)
+def nd_ramp(d, name, W, H, stops, kind='vertical'):
+    """stops: [(pos, (r,g,b)), ...]"""
+    t = d.create(td.tableDAT, name + '_stops'); t.clear()
+    t.appendRow(['pos', 'r', 'g', 'b', 'a'])
+    for p, c in stops: t.appendRow([p, c[0], c[1], c[2], 1])
+    o = d.create(td.rampTOP, name); nd_res(o, W, H); o.par.type = kind; o.par.dat = t
+    return o
+def nd_circle(d, name, W, H, cx, cy, r, col, soft=0.003, ring=0, alpha=1.0, **kw):
+    """cx, cy, r in 'fraction (aspect)' units (screen height = 1, centre = 0); ring > 0 draws an outline instead of a disc."""
+    o = d.create(td.circleTOP, name); nd_res(o, W, H)
+    nd_set(o, centerunit='fractionaspect', radiusunit='fractionaspect', softnessunit='fractionaspect', borderwidthunit='fractionaspect',
+           centerx=nd_s(cx, W, H), centery=nd_s(cy, W, H), radiusx=nd_s(r, W, H), radiusy=nd_s(r, W, H), softness=nd_s(soft, W, H), bgalpha=0, **kw)
+    if ring:
+        nd_set(o, fillalpha=0, borderwidth=nd_s(ring, W, H), borderr=col[0], borderg=col[1], borderb=col[2], borderalpha=alpha)
+    else:
+        nd_set(o, fillcolorr=col[0], fillcolorg=col[1], fillcolorb=col[2], fillalpha=alpha, borderalpha=0)
+    return o
+def nd_rect(d, name, W, H, cx, cy, sx, sy, col, rot=0, soft=0.002, alpha=1.0, **kw):
+    o = d.create(td.rectangleTOP, name); nd_res(o, W, H)
+    return nd_set(o, centerunit='fractionaspect', sizeunit='fractionaspect', softnessunit='fractionaspect', centerx=nd_s(cx, W, H), centery=nd_s(cy, W, H), sizex=nd_s(sx, W, H), sizey=nd_s(sy, W, H), rotate=rot,
+                  softness=nd_s(soft, W, H), bgalpha=0, fillcolorr=col[0], fillcolorg=col[1], fillcolorb=col[2], fillalpha=alpha, borderalpha=0, **kw)
+def nd_over(d, name, W, H, layers, operand='over'):
+    o = d.create(td.compositeTOP, name); nd_res(o, W, H); o.par.operand = operand
+    for l in reversed(layers): l.outputConnectors[0].connect(o)   # Composite: first input is on top, so connect the topmost layer first
+    return o
+def nd_pick(a, b, cond):
+    """per-channel expression: colour a when cond == 0, colour b when cond == 1 (cond is a 0..1 expression string)"""
+    return ['=%r+(%r-%r)*(%s)' % (x, y, x, cond) for x, y in zip(a, b)]
+
+def _nd_demo(demo, W, H):
+    """Looping preview source from native TOPs: bone-white soft blobs with bright outlines, rings and a rotating cross on dark grain."""
+    import math
+    PH = "((absTime.seconds/8.0) % 1.0)"; th = "(2*math.pi*%s)" % PH
+    nz = demo.create(td.noiseTOP, 'ground'); nd_res(nz, W, H)
+    nd_set(nz, type='simplex3d', mono=True, period=0.25, amp=0.08, offset=0.07, harmon=2, aspectcorrect=True)
+    nz.par.tx.expr = "math.cos(%s)*0.7" % th; nz.par.ty.expr = "math.sin(%s)*0.7" % th
+    lay = [nz]
+    for i in range(5):
+        cx = "=0.5*math.sin(%s*%d+%d*1.9)" % (th, 1 + i % 2, i); cy = "=0.28*math.cos(%s*%d+%d*2.7)" % (th, 1 + (i + 1) % 2, i)
+        r = 0.07 + 0.02 * i
+        lay.append(nd_circle(demo, 'blob%d' % i, W, H, cx, cy, r * 1.15, (0.55, 0.55, 0.55), soft=0.01))
+        lay.append(nd_circle(demo, 'shine%d' % i, W, H, cx, cy, r * 0.7, (0.95, 0.95, 0.95), soft=r * 0.6, alpha=0.9))
+        lay.append(nd_circle(demo, 'edge%d' % i, W, H, cx, cy, r * 1.15, (0.9, 0.9, 0.9), ring=0.006, soft=0.004, alpha=0.7))
+    ox = "=0.55*math.cos(%s)" % th; oy = "=0.2*math.sin(%s)" % th
+    for j, rr in enumerate((0.12, 0.17)):
+        lay.append(nd_circle(demo, 'ring%d' % j, W, H, ox, oy, rr, (0.8, 0.8, 0.8), ring=0.005, soft=0.003))
+    lay.append(nd_rect(demo, 'bar_h', W, H, 0, -0.3, 0.6, 0.024, (0.9, 0.9, 0.9), rot="=-math.degrees(%s)" % th))
+    lay.append(nd_rect(demo, 'bar_v', W, H, 0, -0.3, 0.024, 0.4, (0.6, 0.6, 0.6), rot="=-math.degrees(%s)" % th))
+    return nd_over(demo, 'comp', W, H, lay)
+
+def native_input(c, make):
+    """in1 (In TOP) + gated demo COMP (native-TOP source built by make(demo, W, H)) -> Switch 'src' sized by 'res'."""
+    res_chop(c)
+    i = c.create(td.inTOP, 'in1')
+    d = new_demo(c)
+    demo_out(d, make(d, "op('../res')['w']", "op('../res')['h']"))
+    sw = c.create(td.switchTOP, 'src')
+    sw.inputConnectors[0].connect(d.outputConnectors[0]); sw.inputConnectors[1].connect(i)
+    sw.par.index.expr = HASIN
+    setres(sw); sw.par.format = 'rgba16float'
+    return sw
+
 # --- tail: Mix (dry/wet vs src), Bypass, out1 ---
 def finish_v2(c, name, result, src, label='result', extra_outs=()):
     """result = effect TOP, src = dry input switch. Adds Mix cross, Bypass switch, out1 (+ extra_outs=[(top,'label'),..] as out2..)."""
@@ -196,7 +277,7 @@ add_pars(c, [
     *COMMON,
 ])
 p = lambda n: 'parent().par.' + n
-sw = v2_input(c, COMP)
+sw = native_input(c, _nd_demo)
 add_mod(c, 'in2')
 DI = 'parent().par.Direction.menuIndex'
 mp = glsl(c, 'colmap', rd(COMP, 'map.glsl'), inputs=[sw], fmt='rgba32float', vecs=[

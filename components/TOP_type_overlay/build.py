@@ -240,17 +240,118 @@ trt = text('tele_tr', 'tr', 'tr'); blt = text('tele_bl', 'bl', 'bl'); brt = text
 for k in 'rgb':
     rc.par['fontcolor' + k].expr = "parent().par.Accentcolor%s if parent().par.Accent else parent().par.Textcolor%s" % (k, k)
 
-mk = glsl(c, 'marks', rd(COMP, 'marks.glsl'), vecs=[
-  ('uRes', ["op('res')['w']", "op('res')['h']", "parent().par.Margin*op('res')['h']", 'parent().par.Borderwidth']),
-  ('uCol', ['parent().par.Textcolorr', 'parent().par.Textcolorg', 'parent().par.Textcolorb', 'parent().par.Opacity']),
-  ('uAcc', ['parent().par.Accentcolorr', 'parent().par.Accentcolorg', 'parent().par.Accentcolorb', 'parent().par.Accent']),
-  ('uF', ['parent().par.Marks', 'parent().par.Border', 'parent().par.Edgeticks', 'parent().par.Crosshair']),
-], fmt='rgba16float', res=True)
+# ---- frame graphics (border, crop marks, centre cross, edge ticks): Rectangle TOPs ----
+# The frame is symmetric left/right and top/bottom, so only its BOTTOM-LEFT QUARTER is drawn (on a canvas a quarter of
+# the size, 8 bit); a Tile TOP with 'reflect' then mirrors it into the full frame. Only the accent crop mark (top-left)
+# breaks the symmetry; it is drawn on its own small canvas and placed with a Transform TOP.
+# 'geo' holds the measurements in pixels so every rectangle just reads a number.
+geo = c.create(td.constantCHOP, 'geo')
+for i, (nm, ex) in enumerate([
+    ('W', "op('res')['w']"), ('H', "op('res')['h']"),
+    ('inset', "parent().par.Margin*op('res')['h']*0.5"),                      # frame inset from the edge
+    ('bw', "parent().par.Borderwidth"),                                        # border line width
+    ('t', "max(2, parent().par.Borderwidth*2.5)"),                             # crop-mark line width
+    ('L', "0.035*op('res')['h']"),                                             # crop-mark arm length
+    ('hx', "op('res')['w']*0.5 - parent().par.Margin*op('res')['h']*0.5"),     # half width of the frame
+    ('hy', "op('res')['h']*0.5 - parent().par.Margin*op('res')['h']*0.5"),     # half height of the frame
+    ('sp', "(op('res')['w'] - parent().par.Margin*op('res')['h'])/40.0"),      # tick spacing
+]):
+    geo.par['name%d' % i] = nm; geo.par['value%d' % i].expr = ex
+G = lambda k: "op('geo')['%s']" % k
+hx, hy, T, Ln = G('hx'), G('hy'), G('t'), G('L')
+QX, QY = '(%s/4)' % G('W'), '(%s/4)' % G('H')      # the quarter canvas is centred at (-W/4, -H/4) of the frame
+
+def rect(name, cx, cy, w, h, color='Textcolor', gate=None, src=None, border=False, opa=True, quarter='BL'):
+    """Rectangle TOP on a quarter-size 8-bit canvas. cx, cy, w, h in pixels in FRAME coordinates (from the frame
+    centre, y up); drawn over src. quarter = 'BL' or 'TL' (which quarter of the frame the canvas shows)."""
+    r = c.create(td.rectangleTOP, name)
+    r.par.outputresolution = 'custom'
+    r.par.resolutionw.expr = "op('res')['w']/2"; r.par.resolutionh.expr = "op('res')['h']/2"
+    r.par.format = 'rgba8fixed'
+    r.par.sizeunit = 'pixels'; r.par.centerunit = 'pixels'
+    sgn = '-' if quarter == 'BL' else '+'
+    r.par.sizex.expr = w; r.par.sizey.expr = h
+    r.par.centerx.expr = '(%s) + %s' % (cx, QX); r.par.centery.expr = '(%s) %s %s' % (cy, '+' if quarter == 'BL' else '-', QY)
+    for k in 'rgb':
+        r.par['fillcolor' + k].expr = 'parent().par.%s%s' % (color, k)
+        r.par['border' + k].expr = 'parent().par.%s%s' % (color, k)
+        r.par['bgcolor' + k] = 0
+    r.par.bgalpha = 0
+    a = ('parent().par.Opacity' if opa else '1') + (' * ' + gate if gate else '')
+    r.par.fillalpha.expr = '0' if border else a
+    r.par.borderalpha.expr = a if border else '0'
+    if border:
+        r.par.borderwidthunit = 'pixels'; r.par.borderwidth.expr = G('bw'); r.par.borderoffset = 0.5
+    r.par.premultrgbbyalpha = 1
+    if src is not None:
+        r.inputConnectors[0].connect(src)
+    return r
+
+def q_comp(name, operand, *ins):
+    k = c.create(td.compositeTOP, name); k.par.operand = operand
+    k.par.outputresolution = 'custom'
+    k.par.resolutionw.expr = "op('res')['w']/2"; k.par.resolutionh.expr = "op('res')['h']/2"
+    k.par.format = 'rgba8fixed'
+    for i in ins: i.outputConnectors[0].connect(k)
+    return k
+
+# thin border: an outline-only rectangle the size of the frame (only its bottom-left corner shows on this canvas)
+chain = rect('border', '0', '0', '2*' + hx, '2*' + hy, gate='parent().par.Border', border=True)
+# crop marks: two thin rectangles per corner (a horizontal and a vertical arm)
+arm = '(%s + %s/2)' % (Ln, T)
+chain = rect('mark_h', '-(%s + %s/4 - %s/2)' % (hx, T, Ln), '-' + hy, arm, T, gate='parent().par.Marks', src=chain)
+chain = rect('mark_v', '-' + hx, '-(%s + %s/4 - %s/2)' % (hy, T, Ln), T, arm, gate='parent().par.Marks', src=chain)
+# centre cross: two thin bars
+# (2 px bars at half opacity: the mirrored copies add up to a soft 1 px line, like the original)
+chain = rect('cross_h', '0', '0', '2*0.012*' + G('H'), '2', gate='0.5*parent().par.Crosshair', src=chain)
+chain = rect('cross_v', '0', '0', '2', '2*0.012*' + G('H'), gate='0.5*parent().par.Crosshair', src=chain)
+# edge ticks: one tick is drawn wide, then a Transform TOP squeezes it to the tick spacing and repeats it
+# (Extend = repeat). Minor ticks at every spacing, taller major ticks at every 5th.
+def tick_layer(tag, period, length_frac):
+    lenx = '(%s*%s)' % (length_frac, G('H'))
+    wpx = '(%s/2/(%s*%d))' % (G('W'), G('sp'), period)          # width that squeezes to 1 px
+    # the tick sits on the frame's bottom edge, pointing inwards; x = middle of the source canvas
+    tk = rect('tick_%s' % tag, '0', '-(%s - %s/2)' % (hy, lenx), wpx, lenx)
+    tk.par.centerx.expr = '0'      # centred on the source canvas; the Transform below positions the tiles
+    tr_ = c.create(td.transformTOP, 'tick_%s_repeat' % tag)
+    tr_.inputConnectors[0].connect(tk)
+    tr_.par.outputresolution = 'custom'
+    tr_.par.resolutionw.expr = "op('res')['w']/2"; tr_.par.resolutionh.expr = "op('res')['h']/2"
+    tr_.par.format = 'rgba8fixed'
+    tr_.par.extend = 'repeat'
+    tr_.par.tunit = 'pixels'
+    tr_.par.sx.expr = '%d*%s/(%s/2)' % (period, G('sp'), G('W'))
+    tr_.par.tx.expr = '-%s/4 + %s' % (G('W'), G('inset'))    # first tick on the left edge of the frame
+    return tr_
+tk_minor = tick_layer('minor', 1, 0.006)
+tk_major = tick_layer('major', 5, 0.012)
+tk = q_comp('ticks_all', 'maximum', tk_major, tk_minor)
+# keep only the ticks inside the frame, and honour the Edgeticks switch
+win = rect('ticks_window', '-(%s + 0.5)/2' % hx, '0', '%s + 0.5' % hx, '2*' + G('H'), gate='parent().par.Edgeticks', opa=False)
+tkm = q_comp('ticks', 'inside', tk, win)
+quarter = q_comp('quarter', 'over', chain, tkm)
+# mirror the quarter into the full frame
+til = c.create(td.tileTOP, 'frame_mirror')
+til.inputConnectors[0].connect(quarter)
+til.par.repeatx = 2; til.par.repeaty = 2; til.par.reflectx = 1; til.par.reflecty = 1
+til.par.outputresolution = 'custom'; setres(til); til.par.format = 'rgba8fixed'
+# the accent (top-left) crop mark: two rectangles on a quarter canvas, moved into the top-left corner
+acc = rect('accent_h', '-(%s + %s/4 - %s/2)' % (hx, T, Ln), hy, arm, T, color='Accentcolor', gate='parent().par.Marks', quarter='TL')
+acc = rect('accent_v', '-' + hx, '(%s + %s/4 - %s/2)' % (hy, T, Ln), T, arm, color='Accentcolor', gate='parent().par.Marks', src=acc, quarter='TL')
+for k in 'rgb':   # accent off -> same bone colour as the other marks
+    for n in ('accent_h', 'accent_v'):
+        c.op(n).par['fillcolor' + k].expr = "parent().par.Accentcolor%s if parent().par.Accent else parent().par.Textcolor%s" % (k, k)
+acc_pl = c.create(td.transformTOP, 'accent_place')
+acc_pl.inputConnectors[0].connect(acc)
+acc_pl.par.outputresolution = 'custom'; setres(acc_pl); acc_pl.par.format = 'rgba8fixed'
+# the Transform stretches its input to the output size, so scale by 1/2 (back to native pixels) and move to the top-left quarter
+acc_pl.par.sx = 0.5; acc_pl.par.sy = 0.5; acc_pl.par.tx = -0.25; acc_pl.par.ty = 0.25
+mk_layers = (acc_pl, til)   # fed straight into the final Composite below
 
 comp = c.create(td.compositeTOP, 'comp')
 comp.par.operand = 'over'
 comp.par.outputresolution = 'custom'; setres(comp); comp.par.format = 'rgba16float'
-for s in (mk, brt, blt, trt, rc, tl, tb, tb2, tb3, tr_, bsw):   # TD Composite: first input is on top
+for s in (acc_pl, til, brt, blt, trt, rc, tl, tb, tb2, tb3, tr_, bsw):   # TD Composite: first input is on top
     s.outputConnectors[0].connect(comp)
 finish_v2(c, COMP, comp, bsw)
 report(c)

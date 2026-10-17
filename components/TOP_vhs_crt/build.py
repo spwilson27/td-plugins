@@ -183,7 +183,74 @@ add_pars(c, [
     ('Flicker', 'float', 0.5, 0, 2),
 ])
 add_pars(c, [('Resolution', 'wh', (1280, 720))], page='Render')
-src = demo_src(c, COMP, vecs=[uP()])
+# --- native-node helper (pasted into the body of native build.py files) ---
+def nat(c, typ, name, *ins, fmt='rgba16float', **kw):
+    """Create a native op, wire inputs, set pars. A str value starting with '=' is an expression."""
+    o = c.create(getattr(td, typ), name)
+    for i, s in enumerate(ins):
+        if s is not None: o.inputConnectors[i].connect(s)
+    if fmt and hasattr(o.par, 'format'): o.par.format = fmt
+    for k, v in kw.items():
+        p = o.par[k]
+        if isinstance(v, str) and v.startswith('='): p.expr = v[1:]
+        elif isinstance(v, str): p.val = v
+        else: p.val = v
+    return o
+
+P = 'parent().par.'
+F = ' + 0*absTime.frame'
+A = P + 'Amount'
+RW, RH = "parent().par.Resolutionw", "parent().par.Resolutionh"        # v3_finish turns these into the real output size
+T = "absTime.seconds"
+TP = "(absTime.seconds/8.0)"                      # 8 s units, like the old uP.x
+
+# ---------------- demo (preview only): periodic 8 s test picture, all native TOPs ----------------
+i1 = c.create(td.inTOP, 'in1')
+d = c.create(td.baseCOMP, 'demo')
+d.comment = 'preview-only source (used while in1 is unconnected; does not cook otherwise)'
+def dres(o):
+    o.par.outputresolution = 'custom'
+    o.par.resolutionw.expr = 'parent(2).par.Resolutionw'; o.par.resolutionh.expr = 'parent(2).par.Resolutionh'; return o
+def dn(typ, name, *ins, **kw): return dres(nat(d, typ, name, *ins, **kw))
+AA = "(2*math.pi*%s)" % TP
+nz0 = dn('noiseTOP', 'bg_noise', type='simplex3d', period=0.35, amp=0.05, offset=0.05, mono=True, harmon=3,
+         tx="=0.3*math.cos(%s)" % AA, ty="=0.3*math.sin(%s)" % AA)          # moves on a circle in noise space: loops every 8 s
+def stripes(name, kind, per):
+    r = dn('rampTOP', name + '_ramp', type=kind, period=per, extendleft='repeat', extendright='sameasleft')
+    return dn('thresholdTOP', name, r, threshold=0.5, comparator='less')
+sx, sy = stripes('stripes_x', 'horizontal', 1 / 12.0), stripes('stripes_y', 'vertical', 1 / 12.0)
+chk = dn('levelTOP', 'checker', dn('compositeTOP', 'checker_xor', sx, sy, operand='difference'), brightness1=0.05)
+vl = dn('levelTOP', 'vlines', stripes('stripes_v', 'horizontal', 1 / 6.0), brightness1=0.03)
+base = dn('compositeTOP', 'base', nz0, chk, vl, operand='add')
+layers = []
+for i in range(6):
+    k1 = 1 + i % 2; k2 = 1 + i // 3
+    r = (0.10 + 0.025 * i) * 0.5625
+    cx = "=math.sin(%s*%d+%d*1.7)*0.4" % (AA, k1, i); cy = "=math.cos(%s*%d+%d*2.3)*0.30" % (AA, k2, i)
+    tone = (1.0, 0.08, 0.05) if i == 2 else (0.92, 0.9, 0.84)
+    grad = dn('circleTOP', 'grad%d' % i, radiusx=r, radiusy=r, softness=r, centerx=cx, centery=cy, softnesstype='halfcosine',
+              fillcolorr=tone[0] * 1.25, fillcolorg=tone[1] * 1.25, fillcolorb=tone[2] * 1.25, fillalpha=1,
+              bgcolorr=tone[0] * 0.15, bgcolorg=tone[1] * 0.15, bgcolorb=tone[2] * 0.15, bgalpha=1)
+    edge = dn('circleTOP', 'edge%d' % i, radiusx=r, radiusy=r, softness=0.003, centerx=cx, centery=cy, fillcolorr=1, fillcolorg=1, fillcolorb=1,
+              fillalpha=1, bgalpha=0, bgcolorr=0, bgcolorg=0, bgcolorb=0)
+    body = dn('compositeTOP', 'disc%d' % i, grad, edge, operand='inside')
+    ring = dn('circleTOP', 'ring%d' % i, radiusx=r * 1.35, radiusy=r * 1.35, softness=0.001, centerx=cx, centery=cy, fillalpha=0, bgalpha=0,
+              borderwidth=0.003, borderr=tone[0] * 0.7, borderg=tone[1] * 0.7, borderb=tone[2] * 0.7, borderalpha="=0.5+0.5*math.sin(%s*3+%d)" % (AA, i))
+    layers += [ring, body]
+bar = dn('rectangleTOP', 'bar', sizex=0.8 * 0.5625, sizey=0.05, centerx=0, centery=-0.2, rotate="=-%s*57.2958" % AA,
+         fillcolorr=0.9, fillcolorg=0.9, fillcolorb=0.85, fillalpha=1, bgalpha=0, bgcolorr=0, bgcolorg=0, bgcolorb=0)
+sweep = dn('rectangleTOP', 'sweep', sizex=1, sizey=0.012, centery="=(%s %% 1)-0.5" % TP, fillcolorr=0.4, fillcolorg=0.4, fillcolorb=0.4, fillalpha=1,
+           bgalpha=0, bgcolorr=0, bgcolorb=0, bgcolorg=0)
+strip = dn('rampTOP', 'range_strip', type='horizontal')
+stripm = dn('rectangleTOP', 'strip_area', sizex=1, sizey=0.07, centery=0.465, fillcolorr=1, fillcolorg=1, fillcolorb=1, fillalpha=1, bgalpha=0,
+            bgcolorr=0, bgcolorg=0, bgcolorb=0)
+stripc = dn('compositeTOP', 'strip_rgb', strip, stripm, operand='inside')
+objs = dn('compositeTOP', 'objects', sweep, bar, *reversed(layers), operand='over')
+sc = dn('compositeTOP', 'scene', stripc, objs, base, operand='over')
+do = d.create(td.outTOP, 'out1'); do.inputConnectors[0].connect(sc); do.par.label = 'demo source'
+src = nat(c, 'switchTOP', 'src', d.outputConnectors[0], i1)
+src.par.index.expr = "(1 if len(parent().inputConnectors[0].connections) else 0) + 0*absTime.frame + 0*parent().op('in1').width"
+setres(src)
 mi = "parent().par.Mode.menuIndex"
 tape = glsl(c, 'tape', rd(COMP, 'tape.glsl'), inputs=[src], res=True, vecs=[
     uP(),

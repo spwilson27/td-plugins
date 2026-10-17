@@ -175,7 +175,93 @@ add_pars(c, [
 ])
 add_pars(c, [('Resolution', 'wh', (1280, 720))], page='Render')
 look_pg(c)
-src = demo_src(c, COMP, bg=0.0)
+
+# ---------------- demo source (native ops, preview only) ----------------
+i1 = c.create(td.inTOP, 'in1')
+d = c.create(td.baseCOMP, 'demo')
+d.comment = 'preview-only source (used while in1 is unconnected; does not cook otherwise)'
+mkdat(d, 'colors', """import colorsys
+def hsv(h, s, v):
+    return colorsys.hsv_to_rgb(h % 1.0, s, v)
+def mono(h, v):
+    g = v * (0.35 + 0.65 * ((h * 3.0) % 1.0)) * 0.9
+    return (g * 0.96, g * 0.94, g * 0.89)
+def disc(i, t, ch):
+    look = parent(2).par.Look.menuIndex; acc = parent(2).par.Accent.eval()
+    h = 0.12 * i + t * 0.03
+    c = mono(h, 0.7) if look else hsv(h, 0.85, 0.7)
+    if look and i == 2:
+        c = tuple(a * (1 - acc) + b * acc for a, b in zip(c, (1.0, 0.04, 0.04)))
+    return c[ch]
+def core(i, t, ch):
+    look = parent(2).par.Look.menuIndex; acc = parent(2).par.Accent.eval()
+    c = list(disc(i, t, k) + (3.0, 2.7, 2.1)[k] for k in range(3))
+    if look and i == 2:
+        c = [a * (1 - acc) + b * acc for a, b in zip(c, (3.0, 0.1, 0.1))]
+    return c[ch]
+def bar(t, ch, hot):
+    look = parent(2).par.Look.menuIndex; acc = parent(2).par.Accent.eval()
+    import math
+    c = mono(0.55, 1.0) if look else hsv(0.55 + 0.1 * math.sin(t), 0.7, 1.0)
+    c = [x * (3.0 if hot else 1.0) for x in c]
+    if look:
+        c = [a * (1 - acc) + b * acc for a, b in zip(c, (1.0 * (3 if hot else 1), 0.04, 0.04))]
+    return c[ch]
+""")
+T = 'absTime.seconds'
+H = 'parent(2).par.Resolutionh'
+def shape(top, **kw):
+    top.par.outputresolution = 'custom'
+    top.par.resolutionw.expr = 'parent(2).par.Resolutionw'; top.par.resolutionh.expr = 'parent(2).par.Resolutionh'
+    top.par.format = 'rgba16float'
+    if hasattr(top.par, 'borderwidth'): top.par.borderwidth = 0
+    if hasattr(top.par, 'premultrgbbyalpha'): top.par.premultrgbbyalpha = False
+    for k, v in kw.items():
+        p = getattr(top.par, k)
+        if isinstance(v, str) and not p.isMenu: p.expr = v
+        else: p.val = v
+    return top
+prev = None
+# rotating bar: body + two hot end caps, drawn centred then rotated/translated as one image
+bg = shape(d.create(td.constantTOP, 'clear'), colorr=0, colorg=0, colorb=0, alpha=0)
+body = shape(d.create(td.rectangleTOP, 'bar_body'), sizeunit='pixels', sizex=H+'*0.84', sizey=H+'*0.06',
+             fillcolorr="op('colors').module.bar(%s,0,0)" % T, fillcolorg="op('colors').module.bar(%s,1,0)" % T, fillcolorb="op('colors').module.bar(%s,2,0)" % T, fillalpha=1,
+             bgalpha=0, borderalpha=0, combineinput='compres', operand='over')
+body.inputConnectors[0].connect(bg)
+last = body
+for nm, cx in (('cap_l', -0.36), ('cap_r', 0.36)):
+    cp = shape(d.create(td.rectangleTOP, nm), sizeunit='pixels', sizex=H+'*0.12', sizey=H+'*0.06', centerunit='pixels', centerx='%s*%s' % (H, cx), centery=0,
+               fillcolorr="op('colors').module.bar(%s,0,1)" % T, fillcolorg="op('colors').module.bar(%s,1,1)" % T, fillcolorb="op('colors').module.bar(%s,2,1)" % T, fillalpha=1,
+               bgalpha=0, borderalpha=0, combineinput='compres', operand='over')
+    cp.inputConnectors[0].connect(last); last = cp
+xf = shape(d.create(td.transformTOP, 'bar_move'), rotate=T + '*0.7*57.2958', ty=-0.18, tunit='fraction')
+xf.par.bgcolora = 0
+xf.inputConnectors[0].connect(last)
+prev = xf
+for k in range(5):
+    r = 0.11 + 0.025 * k
+    cx = "math.sin(%s*(0.35+0.11*%d)+%d*1.7)*0.55*0.8*parent(2).par.Resolutionw" % (T, k, k)
+    cy = "math.cos(%s*(0.27+0.09*%d)+%d*2.3)*0.33*%s" % (T, k, k, H)
+    dc = shape(d.create(td.circleTOP, 'disc%d' % k), radiusunit='pixels', radiusx='%s*%s' % (r, H), radiusy='%s*%s' % (r, H), centerunit='pixels',
+               centerx=cx, centery=cy, softness=H+'*0.006', softnessunit='pixels',
+               fillcolorr="op('colors').module.disc(%d,%s,0)" % (k, T), fillcolorg="op('colors').module.disc(%d,%s,1)" % (k, T), fillcolorb="op('colors').module.disc(%d,%s,2)" % (k, T), fillalpha=1,
+               bgalpha=0, borderalpha=0, combineinput='compres', operand='over')
+    dc.inputConnectors[0].connect(prev)
+    co = shape(d.create(td.circleTOP, 'core%d' % k), radiusunit='pixels', radiusx='%s*%s' % (r * 0.45, H), radiusy='%s*%s' % (r * 0.45, H), centerunit='pixels',
+               centerx=cx, centery=cy, softness='%s*%s' % (r * 0.35, H), softnessunit='pixels',
+               fillcolorr="op('colors').module.core(%d,%s,0)" % (k, T), fillcolorg="op('colors').module.core(%d,%s,1)" % (k, T), fillcolorb="op('colors').module.core(%d,%s,2)" % (k, T), fillalpha=1,
+               bgalpha=0, borderalpha=0, combineinput='compres', operand='over')
+    co.inputConnectors[0].connect(dc); prev = co
+do = d.create(td.outTOP, 'out1'); do.inputConnectors[0].connect(prev); do.par.label = 'demo source'
+sw = c.create(td.switchTOP, 'src')
+sw.inputConnectors[0].connect(d.outputConnectors[0]); sw.inputConnectors[1].connect(i1)
+sw.par.index.expr = "(1 if len(parent().inputConnectors[0].connections) else 0) + 0*absTime.frame + 0*parent().op('in1').width"
+setres(sw); sw.par.format = 'rgba16float'
+src = sw
+
+# ---------------- trail loop ----------------
+# Kept as ONE GLSL pass (fb.glsl): the native chain (Transform -> Noise/Displace -> HSV Adjust -> Level/Reorder matte ->
+# Composite) measured 3x slower on the GPU (see README), so the loop itself stays a single shader.
 blk = c.create(td.constantTOP, 'blank'); setres(blk); blk.par.format = 'rgba16float'
 blk.par.colorr = 0; blk.par.colorg = 0; blk.par.colorb = 0; blk.par.alpha = 1
 fb = c.create(td.feedbackTOP, 'feedback'); fb.inputConnectors[0].connect(blk)

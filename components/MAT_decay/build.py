@@ -102,8 +102,11 @@ def build_scene(c, mat, shells=None):
     r.par.bgcolora = 0; r.par.bgcolorr = 0; r.par.bgcolorg = 0; r.par.bgcolorb = 0
     r.par.antialias = 'aa4' if 'aa4' in r.par.antialias.menuNames else r.par.antialias.eval()
     r.par.format = 'rgba16float'
-    th = c.create(td.glslTOP, 'bright'); th.inputConnectors[0].connect(r)
-    th.par.pixeldat = mkdat(c, 'bright_code', BRIGHT); th.par.format = 'rgba16float'
+    # bright pass for the bloom: max(colour - 1, 0), i.e. only what is brighter than 1 (Level TOP: 1..2 -> 0..1, negative clamped)
+    th = c.create(td.levelTOP, 'bright'); th.inputConnectors[0].connect(r)
+    th.par.inlow = 1; th.par.inhigh = 2; th.par.outlow = 0; th.par.outhigh = 1
+    th.par.clampinput = False; th.par.clamp = True; th.par.clamplow2 = 0; th.par.clamphigh2 = 1000
+    th.par.format = 'rgba16float'
     th.par.outputresolution = 'custom'; th.par.resolutionw.expr = 'parent().par.Resolutionw/2'; th.par.resolutionh.expr = 'parent().par.Resolutionh/2'
     b1 = c.create(td.blurTOP, 'bloom1'); b1.inputConnectors[0].connect(th); b1.par.size = 8; b1.par.extend = 'hold'
     b2 = c.create(td.blurTOP, 'bloom2'); b2.inputConnectors[0].connect(th); b2.par.size = 40; b2.par.extend = 'hold'
@@ -169,10 +172,6 @@ def onCook(scriptOp):
             for k, pp in enumerate((a, d, c, b)): poly[k].point = pp
 '''
 
-BRIGHT = '''
-out vec4 fragColor;
-void main(){ vec3 c = texture(sTD2DInputs[0], vUV.st).rgb; fragColor = TDOutputSwizzle(vec4(max(c-vec3(1.0),vec3(0.0)),1.0)); }
-'''
 TONEMAP = '''
 uniform vec4 uPrev; // exposure, bloom, backdrop
 out vec4 fragColor;

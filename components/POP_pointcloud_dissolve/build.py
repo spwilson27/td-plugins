@@ -101,6 +101,27 @@ def report(c):
         for k, s in (('err', o.errors()), ('warn', o.warnings()), ('script', o.scriptErrors())):
             if s: print(k, o.path, s[:300])
 
+def mcomb(c, name, src, consts, steps, angle='rad', delete=''):
+    """Math Combine POP built from plain data.  consts: [(name, 'float'|'float3', [number or expression string, ...])]
+    steps: [(operation, A, B, C, result attribute)]: each step reads attributes/constants and writes one attribute."""
+    mc = c.create(td.mathcombinePOP, name)
+    if src is not None: mc.inputConnectors[0].connect(src)
+    mc.par.angleunit = angle
+    mc.seq.vec.numBlocks = len(consts)
+    for k, (nm, ty, vals) in enumerate(consts):
+        getattr(mc.par, 'vec%dname' % k).val = nm; getattr(mc.par, 'vec%dtype' % k).val = ty
+        for q, v in enumerate(vals):
+            p_ = getattr(mc.par, 'vec%dvalue%d' % (k, q))
+            if isinstance(v, str): p_.expr = v
+            else: p_.val = v
+    mc.seq.comb.numBlocks = len(steps)
+    for k, (op_, a_, b_, c_, res) in enumerate(steps):
+        getattr(mc.par, 'comb%doper' % k).val = op_
+        getattr(mc.par, 'comb%dscopea' % k).val = a_; getattr(mc.par, 'comb%dscopeb' % k).val = b_
+        getattr(mc.par, 'comb%dscopec' % k).val = c_; getattr(mc.par, 'comb%dresult' % k).val = res
+    if delete: mc.par.delattrs = delete
+    return mc
+
 COMP = 'POP_pointcloud_dissolve'
 name = COMP
 c = new_comp(name)
@@ -153,12 +174,25 @@ dn.par.tz.expr = "0.6*math.cos(2*math.pi*absTime.seconds/12.0)"
 dn.par.ty.expr = "0.6*math.sin(2*math.pi*absTime.seconds/12.0)"
 dimg = demo.create(td.outTOP, 'out2'); dimg.inputConnectors[0].connect(dn)
 sp = demo.create(td.spherePOP, 'src_sphere'); sp.par.type = 'geodesic'; sp.par.surftype = 'triangles'
-sp.par.radx = 1; sp.par.rady = 1; sp.par.radz = 1; sp.par.normal = True; sp.par.freq.expr = PP+'Density'
-tr = demo.create(td.torusPOP, 'src_torus'); tr.par.surftype = 'triangles'; tr.par.normal = True
+sp.par.radx = 1; sp.par.rady = 1; sp.par.radz = 1; sp.par.freq.expr = PP+'Density'
+tr = demo.create(td.torusPOP, 'src_torus'); tr.par.surftype = 'triangles'
 tr.par.radx = 0.9; tr.par.rady = 0.38
 tr.par.cols.expr = PP+'Density*3'; tr.par.rows.expr = PP+'Density*1.2'
-dsw = demo.create(td.switchPOP, 'shape'); dsw.inputConnectors[0].connect(sp); dsw.inputConnectors[1].connect(tr)
-dsw.par.index.expr = "1 if %sDemoshape=='torus' else 0" % PP
+# head-ish blob: a stretched sphere with lumpy noise along the normals and a nose bump
+bl0 = demo.create(td.spherePOP, 'blob_sphere'); bl0.par.type = 'geodesic'; bl0.par.surftype = 'triangles'
+bl0.par.radx = 1; bl0.par.rady = 1; bl0.par.radz = 1; bl0.par.freq.expr = PP+'Density'
+bl1 = demo.create(td.transformPOP, 'blob_stretch'); bl1.inputConnectors[0].connect(bl0)
+bl1.par.sx = 0.85; bl1.par.sy = 1.25
+bl1n = demo.create(td.normalPOP, 'blob_normals'); bl1n.inputConnectors[0].connect(bl1)
+bl2 = demo.create(td.noisePOP, 'blob_lumps'); bl2.inputConnectors[0].connect(bl1n)
+bl2.par.type = 'simplex3d'; bl2.par.harmon = 1; bl2.par.period = 2/2.2; bl2.par.amp0 = 0.1; bl2.par.combineop = 'translatealongnormal'
+bl3 = mcomb(demo, 'blob_nose', bl2, [('nosepos', 'float3', [0, 0.05, 0.9]), ('nosefall', 'float', [-14]), ('noseheight', 'float', [0.35])],
+            [('asubb', 'P', 'nosepos', '', 'tonose'), ('dot', 'tonose', 'tonose', '', 'd2'),
+             ('mult', 'd2', 'nosefall', '', 'arg'), ('exp', 'arg', '', '', 'bump'),
+             ('aaddbmultc', 'P.z', 'bump', 'noseheight', 'P.z')], delete='tonose d2 arg bump')
+dsw = demo.create(td.switchPOP, 'shape')
+dsw.inputConnectors[0].connect(sp); dsw.inputConnectors[1].connect(tr); dsw.inputConnectors[2].connect(bl3)
+dsw.par.index.expr = "{'sphere':0,'torus':1,'blob':2}[%sDemoshape.eval()]" % PP
 dshape = demo.create(td.outPOP, 'out1'); dshape.inputConnectors[0].connect(dsw)
 
 # depth image for Source = Image: black unless in2 is connected, else the demo image
@@ -166,36 +200,108 @@ none = c.create(td.constantTOP, 'img_none'); none.par.outputresolution = 'custom
 isw = c.create(td.switchTOP, 'img_switch'); isw.inputConnectors[0].connect(none); isw.inputConnectors[1].connect(in1); isw.inputConnectors[2].connect(demo.outputConnectors[1])
 isw.par.index.expr = "0 if parent().par.Source!='image' else (1 if (len(parent().inputConnectors[1].connections)+0*absTime.frame)>0 else 2)"
 
-# sources
-gr = c.create(td.gridPOP, 'src_grid'); gr.par.sizex = 2; gr.par.sizey = 2; gr.par.normal = True
+# ---- sources: demo shape / in1 / image heightfield (grid sampled from the in2 luma), one Switch, then normals and a default lum
+gr = c.create(td.gridPOP, 'src_grid'); gr.par.sizex = 2; gr.par.sizey = 2
 gr.par.cols.expr = P+'Density*2.5'; gr.par.rows.expr = P+'Density*2.5'
+imgl = c.create(td.lookuptexturePOP, 'image_lookup'); imgl.inputConnectors[0].connect(gr)
+imgl.par.top = isw; imgl.par.lookupindexattr0 = 'Tex.x'; imgl.par.lookupindexattr1 = 'Tex.y'; imgl.par.outputattrscope = 'imgcol'
+# luma -> height: P = (x*1.2, y*1.2, (luma-0.5)*Depth); the luma itself is kept in the attribute lum
+imgh = mcomb(c, 'image_heightfield', imgl,
+    [('lumaweights', 'float3', [0.299, 0.587, 0.114]), ('invert', 'float', ["1 if %sInvertluma else 0" % P]),
+     ('one', 'float', [1]), ('scalexy', 'float', [1.2]), ('depth', 'float', [P+'Depth']), ('half', 'float', [0.5])],
+    [('dot', 'imgcol.rgb', 'lumaweights', '', 'luma0'), ('asubb', 'one', 'luma0', '', 'luma1'),
+     ('mix', 'luma0', 'luma1', 'invert', 'lum'),
+     ('mult', 'P.xy', 'scalexy', '', 'newxy'),
+     ('asubb', 'lum', 'half', '', 'lumc'), ('mult', 'lumc', 'depth', '', 'newz'),
+     ('copya', 'newxy', '', '', 'P.xy'), ('copya', 'newz', '', '', 'P.z')], delete='luma0 luma1 newxy lumc newz imgcol')
 sw = c.create(td.switchPOP, 'src_switch')
-sw.inputConnectors[0].connect(demo.outputConnectors[0]); sw.inputConnectors[1].connect(inpop); sw.inputConnectors[2].connect(gr)
+sw.inputConnectors[0].connect(demo.outputConnectors[0]); sw.inputConnectors[1].connect(inpop); sw.inputConnectors[2].connect(imgh)
 sw.par.index.expr = "2 if %sSource=='image' else (1 if %s else 0)" % (P, CON)
-
-dd = mkdat(c, 'dissolve_code', rd(name, 'dissolve.glsl'))
 n0 = c.create(td.normalPOP, 'normals_in'); n0.inputConnectors[0].connect(sw)
-g = c.create(td.glslPOP, 'dissolve'); g.inputConnectors[0].connect(n0)
-g.par.computedat = dd; g.par.outputattrs = 'P'
-g.par.attr0name = 'color'
-g.seq.attr.numBlocks = 2
-g.par.attr1name = 'pointscale'
-g.par.sampler0name = 'uTex'; g.par.sampler0top = isw
-g.seq.vec.numBlocks = 6
+# lum = 1 for the mesh sources (the image source already has its own lum, which this node leaves alone)
+lum1 = c.create(td.attributePOP, 'lum_default'); lum1.inputConnectors[0].connect(n0)
+lum1.par.attr0name = 'custom'; lum1.par.attr0customname = 'lum'; lum1.par.attr0numcomps = '1'; lum1.par.attr0value0 = 1
+lum1.par.overrideifexists = False; lum1.par.notificationifexists = 'ignore'
+
+# ---- the dissolve, built from native POPs
+th = ang
+noff = "(math.cos(%s*%sNoisecycles), math.sin(%s*%sNoisecycles), 0.4*math.cos(%s*%sNoisecycles*2))" % ((th, P)*3)
+# jitter: noise that shifts the erosion front point by point (vn - 0.5 in the old shader)
+jn = c.create(td.noisePOP, 'jitter_noise'); jn.inputConnectors[0].connect(lum1)
+jn.par.type = 'simplex3d'; jn.par.harmon = 1; jn.par.period = 2/2.5; jn.par.amp0 = 0.36
+jn.par.noisesize = '1'; jn.par.combineop = 'none'; jn.par.noise = True; jn.par.noiseoutputattrscope = 'jn'
+for k, ax_ in enumerate('xyz'):
+    getattr(jn.par, 't'+ax_).expr = "0.4*" + noff + "[%d]" % k
+# scatter: curl noise (a divergence-free swirl) written to the attribute 'cv'
+cn = c.create(td.noisePOP, 'curl_noise'); cn.inputConnectors[0].connect(jn)
+cn.par.type = 'simplex3d'; cn.par.harmon = 1; cn.par.period.expr = "2.0/%sNoisefreq" % P
+cn.par.amp0 = 0.153; cn.par.combineop = 'none'; cn.par.curl3d = True; cn.par.curl3doutputattrscope = 'cv'
+for k, ax_ in enumerate('xyz'):
+    getattr(cn.par, 't'+ax_).expr = "0.6*" + noff + "[%d]" % k
+
+AXN = "(%sAxisx**2+%sAxisy**2+%sAxisz**2+1e-10)**0.5" % (P, P, P)
+ax3 = ["%sAxis%s/%s" % (P, q, AXN) for q in 'xyz']
 eff = "(%sAutomax*(0.5-0.5*math.cos(%s*%sAutocycles))**1.6 if %sAuto else %sDissolve)" % (P, ang, P, P, P)
-vecs = [('uA',[eff, "{'plane':0,'sphere':1,'radial':2}[%sWavemode.eval()]" % P, P+'Scatter', P+'Jitter']),
-        ('uB',[ang, P+'Noisefreq', P+'Edgewidth', P+'Drift']),
-        ('uC',["(3 if %sSource=='image' else (0 if %s else {'sphere':0,'torus':1,'blob':2}[%sDemoshape.eval()]))" % (P, CON, P), P+'Depth', P+'Brightness', P+'Noisecycles']),
-        ('uD',[P+'Axisx', P+'Axisy', P+'Axisz', "1 if %sInvertluma else 0" % P]),
-        ('uE',[1,1,1, P+'Edgeglow']),
-        ('uF',[P+'Pointsize',0,0,0])]
-for i,(nm,vals) in enumerate(vecs):
-    getattr(g.par,'vec%dname'%i).val = nm
-    getattr(g.par,'vec%dtype'%i).val = 'vec4'
-    for j,v in enumerate(vals):
-        p = getattr(g.par,'vec%dvalue%s'%(i,'xyzw'[j]))
-        if isinstance(v,str): p.expr = v
-        else: p.val = v
+Wd = "max(%sEdgewidth,0.02)" % P
+Sc = P + 'Scatter'
+Lv = (0.5, 0.8, 0.6); Ln = sum(x*x for x in Lv) ** 0.5
+consts = [('zero', 'float', [0]), ('one', 'float', [1]), ('half', 'float', [0.5]),
+          ('axis', 'float3', ax3), ('modesphere', 'float', ["1 if %sWavemode=='sphere' else 0" % P]), ('moderadial', 'float', ["1 if %sWavemode=='radial' else 0" % P]),
+          ('kplane', 'float', [0.5/1.5]), ('orbit', 'float3', ["0.7*math.cos(%s)" % th, 0.14, "0.7*math.sin(%s)" % th]),
+          ('ksphere', 'float', [1/(1.5*1.6)]), ('kradial', 'float', [1/1.5]),
+          ('jitter', 'float', [P+'Jitter']),
+          ('front', 'float', ["%s*(1+%s+%sJitter)" % (eff, Wd, P)]), ('width', 'float', [Wd]),
+          ('kcurl', 'float', ["%s*0.5" % Sc]), ('axdrift', 'float3', ["%s*%sDrift" % (a_, P) for a_ in ax3]),
+          ('kout', 'float', ["0.15*" + Sc]), ('krand', 'float', ["0.9*" + Sc]), ('c03', 'float', [0.3]),
+          ('lightdir', 'float3', [Lv[0]/Ln, Lv[1]/Ln, Lv[2]/Ln]),
+          ('k07', 'float', [0.7]), ('k03', 'float', [0.3]), ('k02', 'float', [0.2]), ('k075', 'float', [0.75]), ('k025', 'float', [0.25]),
+          ('isimage', 'float', ["1 if %sSource=='image' else 0" % P]),
+          ('four', 'float', [4]), ('edgeglow', 'float', [P+'Edgeglow']), ('bright', 'float', [P+'Brightness']),
+          ('fadefrom', 'float', [0.82]), ('psize', 'float', [P+'Pointsize']), ('k08', 'float', [0.8]), ('k06', 'float', [0.6]),
+          ('minushalf', 'float', [-0.5]),
+          ('hashmul', 'float', [12.9898]), ('hashbig', 'float', [43758.5453])] + \
+         [('hashk%d' % k, 'float', [k*78.233]) for k in (1, 2, 3, 5)]
+def rnd(k, res):
+    """the old shader's per-point hash: fract(sin(pointIndex*12.9898 + k*78.233) * 43758.5453)"""
+    return [('amultbaddc', '_PointI', 'hashmul', 'hashk%d' % k, 'hx'), ('sin', 'hx', '', '', 'hs'), ('mult', 'hs', 'hashbig', '', 'hb'), ('fract', 'hb', '', '', res)]
+steps = [
+  # erosion-front coordinate tw (0..1 across the shape): plane, orbiting sphere or radial; the Wavemode menu selects one by mixing
+  ('dot', 'P', 'axis', '', 'along'), ('amultbaddc', 'along', 'kplane', 'half', 'twplane'),
+  ('asubb', 'P', 'orbit', '', 'rel'), ('length', 'rel', '', '', 'dist'), ('mult', 'dist', 'ksphere', '', 'twsphere'),
+  ('mult', 'axis', 'along', '', 'onaxis'), ('asubb', 'P', 'onaxis', '', 'perp'), ('length', 'perp', '', '', 'dist2'), ('mult', 'dist2', 'kradial', '', 'twradial'),
+  ('mix', 'twplane', 'twsphere', 'modesphere', 'tw0'), ('mix', 'tw0', 'twradial', 'moderadial', 'tw'),
+  # how far the erosion front has passed each point: e = smoothstep((front - (tw + jitter)) / width), 0 = intact, 1 = gone
+  ('mult', 'jn', 'jitter', '', 'jit'), ('add', 'tw', 'jit', '', 'twj'), ('asubb', 'front', 'twj', '', 'ahead'),
+  ('adivb', 'ahead', 'width', '', 'xarg'), ('smoothstep', 'zero', 'one', 'xarg', 'e'), ('mult', 'e', 'e', '', 'e2')] + \
+  rnd(1, 'rx') + rnd(2, 'ry') + rnd(3, 'rz') + rnd(5, 'rw') + [
+  ('copya', 'rx', '', '', 'rv.x'), ('copya', 'ry', '', '', 'rv.y'), ('copya', 'rz', '', '', 'rv.z'),
+  # scatter: curl swirl + drift along the axis + outward push + random dust, all growing with e
+  ('mult', 'cv', 'kcurl', '', 'sw0'), ('mult', 'sw0', 'e2', '', 'swirl'),
+  ('mult', 'axdrift', 'e2', '', 'drift'),
+  ('normalize', 'P', '', '', 'pdir'), ('mult', 'pdir', 'e', '', 'p1'), ('mult', 'p1', 'kout', '', 'outward'),
+  ('asubb', 'rv', 'half', '', 'r0'), ('add', 'e', 'c03', '', 'e03'), ('mult', 'e', 'e03', '', 'ee'),
+  ('mult', 'r0', 'ee', '', 'r1'), ('mult', 'r1', 'krand', '', 'dust'),
+  ('add', 'swirl', 'drift', '', 's1'), ('add', 's1', 'outward', '', 's2'), ('add', 's2', 'dust', '', 'disp'),
+  # shading: lit mesh grey (or the image luma), brighter on the erosion edge, alpha fades as the point is eroded
+  ('dot', 'N', 'lightdir', '', 'ndl'), ('max', 'ndl', 'zero', '', 'lit'), ('abs', 'N.z', '', '', 'az'),
+  ('asubb', 'one', 'az', '', 'iaz'), ('mult', 'iaz', 'iaz', '', 'rimk'),
+  ('amultbaddc', 'lit', 'k07', 'k03', 'sh0'), ('aaddbmultc', 'sh0', 'rimk', 'k02', 'shapeshade'),
+  ('amultbaddc', 'lum', 'k075', 'k025', 'imageshade'), ('mix', 'shapeshade', 'imageshade', 'isimage', 'shade'),
+  ('asubb', 'one', 'e', '', 'ie'), ('mult', 'e', 'ie', '', 'e1'), ('mult', 'e1', 'four', '', 'edge'),
+  ('amultbaddc', 'edge', 'edgeglow', 'one', 'glow'), ('mult', 'shade', 'glow', '', 'g1'), ('mult', 'g1', 'bright', '', 'col'),
+  ('smoothstep', 'fadefrom', 'one', 'e', 'gone'), ('asubb', 'one', 'gone', '', 'alpha'),
+  ('amultbaddc', 'rw', 'k08', 'k06', 'sz0'), ('amultbaddc', 'e', 'minushalf', 'one', 'sz1'), ('mult', 'sz0', 'sz1', '', 'sz2'),
+  # write the results
+  ('add', 'P', 'disp', '', 'P'), ('copya', 'col', '', '', 'Color.rgb'), ('copya', 'alpha', '', '', 'Color.a'),
+  ('mult', 'sz2', 'psize', '', 'PointScale')]
+tmp = ('along twplane rel dist twsphere onaxis perp dist2 twradial tw0 tw jit twj ahead xarg e e2 hx hs hb rx ry rz rw rv sw0 swirl drift pdir p1 outward '
+       'r0 e03 ee r1 dust s1 s2 disp ndl lit az iaz rimk sh0 shapeshade imageshade shade ie e1 edge glow g1 col gone alpha sz0 sz1 sz2 jn cv lum')
+g = mcomb(c, 'dissolve', jn if False else cn, consts, steps, delete=tmp)
+# the attributes the node creates itself: Color (rgba, written at the end) and rv (random xyz)
+g.seq.attr.numBlocks = 2
+g.par.attr0name = 'color'; g.par.attr0type = 'color'; g.par.attr0numcomps = '4'
+for k in range(4): getattr(g.par, 'attr0defaultval%d' % k).val = 1
+g.par.attr1name = 'custom'; g.par.attr1customname = 'rv'; g.par.attr1type = 'float'; g.par.attr1numcomps = '3'
 o1 = c.create(td.nullPOP, 'out1'); o1.comment = 'points'; o1.inputConnectors[0].connect(g)
 
 geo = c.create(td.geometryCOMP, 'geo')

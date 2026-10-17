@@ -34,3 +34,9 @@ pattern there; Invert flips that. Reset after changing Resolution.
   the weights. Snippet example 3.
 
 Snippets: `snippets/TOP_reaction_diffusion.tox` (About > Snippets). Note: the `src` Switch gating the demo evaluates its index from the input connection.
+
+## Implementation
+
+### Preview source (demo)
+The `demo` COMP used when `in1` is unconnected is built only from native operators, no GLSL: a horizontal Ramp TOP ground, four soft Circle TOP blobs and a pulsing Circle TOP ring, stacked by a Composite TOP. It sits behind the Switch, so it does not cook when an input is connected.
+

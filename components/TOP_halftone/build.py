@@ -80,16 +80,84 @@ def look_pg(c):
 
 LOOK_VECS = [('uM', [0, 'parent(2).par.Look.menuIndex', 'parent(2).par.Accent', 0])]
 
+# ---- native demo helpers: Constant / Ramp / Noise / Circle / Rectangle / Composite TOPs (no GLSL) ----
+def nd_set(o, **kw):
+    for k, v in kw.items():
+        if isinstance(v, str) and v.startswith('='): o.par[k].expr = v[1:]
+        else: o.par[k] = v
+    return o
+def nd_res(o, W, H):
+    o.par.outputresolution = 'custom'; o.par.format = 'rgba16float'
+    for k, v in (('resolutionw', W), ('resolutionh', H)):
+        if isinstance(v, str): o.par[k].expr = v
+        else: o.par[k] = v
+    return o
+def nd_s(v, W, H):
+    """Lengths below are in units of the picture HEIGHT (centre = 0); Circle/Rectangle 'fractionaspect' units are relative to the WIDTH, so scale by H/W."""
+    if not isinstance(W, str) and not isinstance(H, str): return v * H / W if not isinstance(v, str) else '=(%s)*%s' % (v[1:], H / W)
+    return '=(%s)*(%s)/(%s)' % (v[1:] if isinstance(v, str) else repr(v), H, W)
+def nd_const(d, name, W, H, col, alpha=1):
+    o = d.create(td.constantTOP, name); nd_res(o, W, H)
+    return nd_set(o, colorr=col[0], colorg=col[1], colorb=col[2], alpha=alpha)
+def nd_ramp(d, name, W, H, stops, kind='vertical'):
+    """stops: [(pos, (r,g,b)), ...]"""
+    t = d.create(td.tableDAT, name + '_stops'); t.clear()
+    t.appendRow(['pos', 'r', 'g', 'b', 'a'])
+    for p, c in stops: t.appendRow([p, c[0], c[1], c[2], 1])
+    o = d.create(td.rampTOP, name); nd_res(o, W, H); o.par.type = kind; o.par.dat = t
+    return o
+def nd_circle(d, name, W, H, cx, cy, r, col, soft=0.003, ring=0, alpha=1.0, **kw):
+    """cx, cy, r in 'fraction (aspect)' units (screen height = 1, centre = 0); ring > 0 draws an outline instead of a disc."""
+    o = d.create(td.circleTOP, name); nd_res(o, W, H)
+    nd_set(o, centerunit='fractionaspect', radiusunit='fractionaspect', softnessunit='fractionaspect', borderwidthunit='fractionaspect',
+           centerx=nd_s(cx, W, H), centery=nd_s(cy, W, H), radiusx=nd_s(r, W, H), radiusy=nd_s(r, W, H), softness=nd_s(soft, W, H), bgalpha=0, **kw)
+    if ring:
+        nd_set(o, fillalpha=0, borderwidth=nd_s(ring, W, H), borderr=col[0], borderg=col[1], borderb=col[2], borderalpha=alpha)
+    else:
+        nd_set(o, fillcolorr=col[0], fillcolorg=col[1], fillcolorb=col[2], fillalpha=alpha, borderalpha=0)
+    return o
+def nd_rect(d, name, W, H, cx, cy, sx, sy, col, rot=0, soft=0.002, alpha=1.0, **kw):
+    o = d.create(td.rectangleTOP, name); nd_res(o, W, H)
+    return nd_set(o, centerunit='fractionaspect', sizeunit='fractionaspect', softnessunit='fractionaspect', centerx=nd_s(cx, W, H), centery=nd_s(cy, W, H), sizex=nd_s(sx, W, H), sizey=nd_s(sy, W, H), rotate=rot,
+                  softness=nd_s(soft, W, H), bgalpha=0, fillcolorr=col[0], fillcolorg=col[1], fillcolorb=col[2], fillalpha=alpha, borderalpha=0, **kw)
+def nd_over(d, name, W, H, layers, operand='over'):
+    o = d.create(td.compositeTOP, name); nd_res(o, W, H); o.par.operand = operand
+    for l in reversed(layers): l.outputConnectors[0].connect(o)   # Composite: first input is on top, so connect the topmost layer first
+    return o
+def nd_pick(a, b, cond):
+    """per-channel expression: colour a when cond == 0, colour b when cond == 1 (cond is a 0..1 expression string)"""
+    return ['=%r+(%r-%r)*(%s)' % (x, y, x, cond) for x, y in zip(a, b)]
+
+def _nd_demo(demo):
+    """Preview source from native TOPs: a rotating bar and five drifting discs with bright cores, on a dark ground.
+    Look = Mono swaps the palette to bone-white greys, and Accent turns one disc and the bar red."""
+    import math
+    W, H, T = "parent(2).par.Resolutionw", "parent(2).par.Resolutionh", "absTime.seconds"
+    A = "(%s)/(%s)" % (W, H)
+    M = "(parent(2).par.Look.menuIndex)"; ACC = "(parent(2).par.Accent)"
+    hsv = lambda h, s_, v: [v * (1 - s_ + s_ * max(0.0, min(1.0, abs(((h + k) % 1.0) * 6 - 3) - 1))) for k in (0.0, 2 / 3.0, 1 / 3.0)]
+    lay = [nd_const(demo, 'ground', W, H, (0.0, 0.0, 0.0), alpha=0)]
+    lay[0].par.colorr.expr = "0.16*(1-%s)+0.01*%s" % (M, M); lay[0].par.colorg.expr = lay[0].par.colorr.expr; lay[0].par.colorb.expr = lay[0].par.colorr.expr
+    bar_col = [nd_pick(hsv(0.55, 0.7, 1.0), (0.86, 0.84, 0.8), M)[k] for k in range(3)]
+    bar_col = ['=(%s)*(1-%s*%s)+%s*%s*%f' % (bar_col[k][1:], M, ACC, M, ACC, (1.0, 0.04, 0.04)[k]) for k in range(3)]
+    lay.append(nd_rect(demo, 'bar', W, H, 0, -0.18, 0.84, 0.06, bar_col, rot="=-%s*0.7*57.2958" % T, soft=0.002))
+    for i in range(5):
+        cx = "=%s*math.sin(%s*(0.35+0.11*%d)+%d*1.7)*0.44" % (A, T, i, i); cy = "=0.33*math.cos(%s*(0.27+0.09*%d)+%d*2.3)" % (T, i, i)
+        r = 0.11 + 0.025 * i
+        col = hsv(0.12 * i, 0.85, 0.7); mono = [0.7 * (0.35 + 0.65 * ((0.12 * i * 3) % 1.0)) * k for k in (0.96, 0.94, 0.89)]
+        dc = nd_pick(col, mono, M)
+        if i == 2: dc = ['=(%s)*(1-%s*%s)+%s*%s*%f' % (dc[k][1:], M, ACC, M, ACC, (1.0, 0.04, 0.04)[k]) for k in range(3)]
+        lay.append(nd_circle(demo, 'disc%d' % i, W, H, cx, cy, r, dc, soft=0.004))
+        lay.append(nd_circle(demo, 'core%d' % i, W, H, cx, cy, r * 0.45, (2.5, 2.2, 1.7), soft=r * 0.4, alpha=0.8))
+    return nd_over(demo, 'comp', W, H, lay)
+
 def demo_src(c, comp, fn='src.glsl', bg=1.0, vecs=None, fmt='rgba16float'):
     """in1 + gated `demo` COMP (preview-only source) -> Switch TOP 'src'.
     The switch picks the demo only while in1 is unconnected, so the demo does not cook otherwise."""
     i = c.create(td.inTOP, 'in1')
     d = c.create(td.baseCOMP, 'demo')
     d.comment = 'preview-only source (used while in1 is unconnected; does not cook otherwise)'
-    if vecs is None:
-        vecs = [('uTime', ['absTime.seconds', 0, 0, 0]), ('uBg', [bg, 0, 0, 0])] + LOOK_VECS
-    g = glsl(d, 'defsrc', rd(comp, fn), vecs=vecs, fmt=fmt)
-    setres(g, 'parent(2).par.Resolutionw', 'parent(2).par.Resolutionh')
+    g = _nd_demo(d)
     o = d.create(td.outTOP, 'out1'); o.inputConnectors[0].connect(g); o.par.label = 'demo source'
     sw = c.create(td.switchTOP, 'src')
     sw.inputConnectors[0].connect(d.outputConnectors[0]); sw.inputConnectors[1].connect(i)

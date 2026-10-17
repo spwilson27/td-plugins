@@ -163,11 +163,40 @@ for k, v in PRESETS['bone_waves'].items(): c.par[k] = v
 i1 = c.create(td.inTOP, 'in1')
 mod_chop(c, 'in2')
 demo = c.create(td.baseCOMP, 'demo')
-dg = demo.create(td.glslTOP, 'pic')
-dg.par.pixeldat = mkdat(demo, 'pic_code', rd(COMP, 'demo.glsl'))
-dg.par.outputresolution = 'custom'; dg.par.resolutionw = 1280; dg.par.resolutionh = 720; dg.par.format = 'rgba16float'
-dg.seq.vec.numBlocks = 1; dg.par.vec0name = 'uT'; dg.par.vec0valuex.expr = 'absTime.seconds'
-do = demo.create(td.outTOP, 'out1'); do.inputConnectors[0].connect(dg)
+demo.comment = 'preview-only picture (used while in1 is unconnected; does not cook otherwise)'
+# preview-only demo picture, native: colour rings (Ramp, circular) x vertical bars (Ramp) + thin bone lines (Ramp) + a drifting disc (Circle)
+import math as _m
+def keytable(name, rows):
+    t = demo.create(td.tableDAT, name)
+    t.clear(); t.appendRow(['pos', 'r', 'g', 'b', 'a'])
+    for r_ in rows: t.appendRow(r_)
+    return t
+def ramp(name, typ, rows, period, phase, inp=None, operand='multiply'):
+    r_ = demo.create(td.rampTOP, name)
+    r_.par.dat = keytable(name + '_keys', rows)
+    r_.par.type = typ; r_.par.period = period
+    if isinstance(phase, str): r_.par.phase.expr = phase
+    else: r_.par.phase = phase
+    r_.par.extendleft = 'repeat'; r_.par.fitaspect = 'fitvert' if typ == 'circular' else 'fithorz'
+    r_.par.outputresolution = 'custom'; r_.par.resolutionw = 1280; r_.par.resolutionh = 720; r_.par.format = 'rgba16float'
+    r_.par.interpnotches = 'linear'
+    if inp is not None:
+        r_.par.combineinput = 'compres'; r_.par.operand = operand; r_.inputConnectors[0].connect(inp)
+    return r_
+N = 24
+rings_rows = [[i / N] + [0.5 + 0.5 * _m.cos(ph + 2 * _m.pi * i / N) for ph in (0.0, 2.1, 4.2)] + [1] for i in range(N + 1)]
+rings = ramp('rings', 'circular', rings_rows, 2 * _m.pi / 3, '0.5*absTime.seconds/(2*math.pi)')
+bars = ramp('bars', 'horizontal', [[0, .35, .35, .35, 1], [.49999, .35, .35, .35, 1], [.5, 1, 1, 1, 1], [1, 1, 1, 1, 1]], 0.25 * 720 / 1280, '0.3*math.sin(absTime.seconds*0.3)', inp=rings)
+lines = ramp('lines', 'vertical', [[0, .92, .9, .8, 1], [.08, .92, .9, .8, 1], [.0801, .92, .9, .8, 0], [.9199, .92, .9, .8, 0], [.92, .92, .9, .8, 1], [1, .92, .9, .8, 1]], 0.2, 0.5, inp=bars, operand='over')
+disc = demo.create(td.circleTOP, 'disc')
+disc.par.outputresolution = 'custom'; disc.par.resolutionw = 1280; disc.par.resolutionh = 720; disc.par.format = 'rgba16float'
+disc.par.radiusunit = 'pixels'; disc.par.radiusx = 0.16 * 720; disc.par.radiusy = 0.16 * 720
+disc.par.centerunit = 'pixels'; disc.par.centerx.expr = '0.35*720*math.sin(absTime.seconds*0.6)'; disc.par.centery.expr = '0.2*720*math.cos(absTime.seconds*0.45)'
+disc.par.softnessunit = 'pixels'; disc.par.softness = 14; disc.par.borderwidth = 0
+disc.par.fillcolorr = 1.0; disc.par.fillcolorg = 0.25; disc.par.fillcolorb = 0.1; disc.par.fillalpha = 1
+disc.par.bgalpha = 0; disc.par.borderalpha = 0; disc.par.premultrgbbyalpha = False
+disc.par.combineinput = 'compres'; disc.par.operand = 'over'; disc.inputConnectors[0].connect(lines)
+do = demo.create(td.outTOP, 'out1'); do.inputConnectors[0].connect(disc)
 src = demo_switch(c, demo.outputConnectors[0], 'src')
 
 p = lambda n: 'parent().par.' + n

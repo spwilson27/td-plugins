@@ -30,3 +30,9 @@ Glyph / ASCII rendering **of the input image**: the image is divided into cells,
 | Look | Look, Accent | `original` = input colours; `mono` = bone-white / grey glyphs with an optional red Accent fraction |
 
 No Loop page: time only drives the rain / tunnel scroll.
+
+## Implementation
+
+### Preview source (demo)
+The `demo` COMP used when `in1` is unconnected is built only from native operators, no GLSL: a vertical Ramp TOP sky, three shaded balls (Circle TOP disc plus soft Circle TOP highlight) and a Rectangle TOP wave line, stacked by a Composite TOP. It sits behind the Switch, so it does not cook when an input is connected.
+

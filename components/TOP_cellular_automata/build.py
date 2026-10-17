@@ -87,10 +87,63 @@ M = lambda n: "op('modlib').module.m('%s')" % n
 # ---- source: in1, or the gated demo
 inn = mk(td.inTOP, 'in1')
 demo = c.create(td.baseCOMP, 'demo')
-dg = demo.create(td.glslTOP, 'gen'); dg.par.outputresolution = 'custom'; dg.par.format = 'rgba16float'
-dg.par.resolutionw.expr = "parent(2).par.Resolutionw"; dg.par.resolutionh.expr = "parent(2).par.Resolutionh"
-dd = demo.create(td.textDAT, 'gen_code'); dd.text = rd('demo.glsl'); dg.par.pixeldat = dd
-dg.seq.vec.numBlocks = 1; dg.par.vec0name = 'uT'; dg.par.vec0valuex.expr = 'absTime.seconds'
+# ---- native demo helpers: Constant / Ramp / Noise / Circle / Rectangle / Composite TOPs (no GLSL) ----
+def nd_set(o, **kw):
+    for k, v in kw.items():
+        if isinstance(v, str) and v.startswith('='): o.par[k].expr = v[1:]
+        else: o.par[k] = v
+    return o
+def nd_res(o, W, H):
+    o.par.outputresolution = 'custom'; o.par.format = 'rgba16float'
+    for k, v in (('resolutionw', W), ('resolutionh', H)):
+        if isinstance(v, str): o.par[k].expr = v
+        else: o.par[k] = v
+    return o
+def nd_s(v, W, H):
+    """Lengths below are in units of the picture HEIGHT (centre = 0); Circle/Rectangle 'fractionaspect' units are relative to the WIDTH, so scale by H/W."""
+    if not isinstance(W, str) and not isinstance(H, str): return v * H / W if not isinstance(v, str) else '=(%s)*%s' % (v[1:], H / W)
+    return '=(%s)*(%s)/(%s)' % (v[1:] if isinstance(v, str) else repr(v), H, W)
+def nd_const(d, name, W, H, col):
+    o = d.create(td.constantTOP, name); nd_res(o, W, H)
+    return nd_set(o, colorr=col[0], colorg=col[1], colorb=col[2], alpha=1)
+def nd_ramp(d, name, W, H, stops, kind='vertical'):
+    """stops: [(pos, (r,g,b)), ...]"""
+    t = d.create(td.tableDAT, name + '_stops'); t.clear()
+    t.appendRow(['pos', 'r', 'g', 'b', 'a'])
+    for p, c in stops: t.appendRow([p, c[0], c[1], c[2], 1])
+    o = d.create(td.rampTOP, name); nd_res(o, W, H); o.par.type = kind; o.par.dat = t
+    return o
+def nd_circle(d, name, W, H, cx, cy, r, col, soft=0.003, ring=0, alpha=1.0, **kw):
+    """cx, cy, r in 'fraction (aspect)' units (screen height = 1, centre = 0); ring > 0 draws an outline instead of a disc."""
+    o = d.create(td.circleTOP, name); nd_res(o, W, H)
+    nd_set(o, centerunit='fractionaspect', radiusunit='fractionaspect', softnessunit='fractionaspect', borderwidthunit='fractionaspect',
+           centerx=nd_s(cx, W, H), centery=nd_s(cy, W, H), radiusx=nd_s(r, W, H), radiusy=nd_s(r, W, H), softness=nd_s(soft, W, H), bgalpha=0, **kw)
+    if ring:
+        nd_set(o, fillalpha=0, borderwidth=nd_s(ring, W, H), borderr=col[0], borderg=col[1], borderb=col[2], borderalpha=alpha)
+    else:
+        nd_set(o, fillcolorr=col[0], fillcolorg=col[1], fillcolorb=col[2], fillalpha=alpha, borderalpha=0)
+    return o
+def nd_rect(d, name, W, H, cx, cy, sx, sy, col, rot=0, soft=0.002, alpha=1.0, **kw):
+    o = d.create(td.rectangleTOP, name); nd_res(o, W, H)
+    return nd_set(o, centerunit='fractionaspect', sizeunit='fractionaspect', softnessunit='fractionaspect', centerx=nd_s(cx, W, H), centery=nd_s(cy, W, H), sizex=nd_s(sx, W, H), sizey=nd_s(sy, W, H), rotate=rot,
+                  softness=nd_s(soft, W, H), bgalpha=0, fillcolorr=col[0], fillcolorg=col[1], fillcolorb=col[2], fillalpha=alpha, borderalpha=0, **kw)
+def nd_over(d, name, W, H, layers, operand='over'):
+    o = d.create(td.compositeTOP, name); nd_res(o, W, H); o.par.operand = operand
+    for l in reversed(layers): l.outputConnectors[0].connect(o)   # Composite: first input is on top, so connect the topmost layer first
+    return o
+
+def _nd_demo(demo):
+    import math
+    W, H, T = "parent(2).par.Resolutionw", "parent(2).par.Resolutionh", "absTime.seconds"
+    lay = [nd_const(demo, 'bg', W, H, (0.02, 0.02, 0.05))]
+    for i in range(4):   # four drifting discs, each with an orbit ring
+        hue = [0.25 + 0.75 * (0.5 + 0.5 * math.cos(6.2831 * (i / 4.0 + k))) for k in (0.0, 0.33, 0.67)]
+        cx = "=0.42*math.sin(%s*(0.4+0.13*%d)+%d*1.7)" % (T, i, i)
+        cy = "=0.25*math.cos(%s*(0.33+0.1*%d)+%d*2.3)" % (T, i, i)
+        lay.append(nd_circle(demo, 'disc%d' % i, W, H, cx, cy, 0.16, hue, soft=0.01))
+        lay.append(nd_circle(demo, 'ring%d' % i, W, H, cx, cy, 0.24, [h * 0.9 for h in hue], ring=0.012, soft=0.004, alpha=0.9))
+    return nd_over(demo, 'comp', W, H, lay)
+dg = _nd_demo(demo)
 dout = demo.create(td.outTOP, 'out1'); dout.inputConnectors[0].connect(dg)
 src = mk(td.switchTOP, 'src', format='rgba16float')
 src.inputConnectors[0].connect(demo.outputConnectors[0]); src.inputConnectors[1].connect(inn)

@@ -177,7 +177,73 @@ add_pars(c, [
 ])
 add_pars(c, [('Resolution', 'wh', (1280, 720))], page='Render')
 look_pg(c)
-src = demo_src(c, COMP, bg=1.0)
+# --- native-node helper (pasted into the body of native build.py files) ---
+def nat(c, typ, name, *ins, fmt='rgba16float', **kw):
+    """Create a native op, wire inputs, set pars. A str value starting with '=' is an expression."""
+    o = c.create(getattr(td, typ), name)
+    for i, s in enumerate(ins):
+        if s is not None: o.inputConnectors[i].connect(s)
+    if fmt and hasattr(o.par, 'format'): o.par.format = fmt
+    for k, v in kw.items():
+        p = o.par[k]
+        if isinstance(v, str) and v.startswith('='): p.expr = v[1:]
+        elif isinstance(v, str): p.val = v
+        else: p.val = v
+    return o
+
+P = 'parent().par.'
+# ---------------- demo (preview only): bar + five discs on a noisy grid, all native TOPs ----------------
+i1 = c.create(td.inTOP, 'in1')
+d = c.create(td.baseCOMP, 'demo')
+d.comment = 'preview-only source (used while in1 is unconnected; does not cook otherwise)'
+LOOKM = "parent(2).par.Look.menuIndex"; ACC = "parent(2).par.Accent"
+def dres(o):
+    o.par.outputresolution = 'custom'
+    o.par.resolutionw.expr = 'parent(2).par.Resolutionw'; o.par.resolutionh.expr = 'parent(2).par.Resolutionh'; return o
+def dn(typ, name, *ins, **kw): return dres(nat(d, typ, name, *ins, **kw))
+bg0 = dn('noiseTOP', 'bg_noise', type='simplex3d', period=0.6, amp=0.03, offset=0.07, mono=False, tz="=absTime.seconds*0.03")
+def stripes(name, kind):
+    r = dn('rampTOP', name + '_ramp', type=kind, period=1 / 14.0, extendleft='repeat', extendright='sameasleft')
+    return dn('thresholdTOP', name, r, threshold=0.5, comparator='less')
+sx, sy = stripes('stripes_x', 'horizontal'), stripes('stripes_y', 'vertical')
+chk0 = dn('compositeTOP', 'checker', sx, sy, operand='difference')
+chk = dn('levelTOP', 'grid_level', chk0, brightness1=0.06)
+tint = dn('compositeTOP', 'bg', bg0, chk, operand='add')
+tint.par.format = 'rgba16float'
+def hue(h):   # python expression string of an rgb tuple member in TD expression language
+    return h
+layers = [tint]
+def colr(i, base_h, sat, val, ch):
+    # hue to rgb channel in an expression; mono look gives bone-white greys
+    off = {'r': 0.0, 'g': 2.0/3.0, 'b': 1.0/3.0}[ch]
+    k = "max(0,min(1,abs(((%s+%f)%%1)*6-3)-1))" % (base_h, off)
+    colv = "(%f*(1-%f+%f*%s))" % (val, sat, sat, k)
+    grey = "(%f*0.9*%s)" % (val * (0.35 + 0.65 * ((base_h_val(i)*3) % 1)), {'r': '0.96', 'g': '0.94', 'b': '0.89'}[ch])
+    return "=(%s if %s else %s)" % (grey, LOOKM + '==1', colv)
+def base_h_val(i): return 0.12 * i
+bar = dn('rectangleTOP', 'bar', sizex=0.47, sizey=0.06, sizeunit='fractionaspect' if False else 'fraction', centery=-0.18, rotate="=-absTime.seconds*0.7*57.2958",
+         fillcolorr="=(3*(0.96*(1-%s)+%s) if %s==1 else 0.9)" % (ACC, ACC, LOOKM), fillcolorg="=(3*(0.94*(1-%s)+0.04*%s) if %s==1 else 2.7)" % (ACC, ACC, LOOKM),
+         fillcolorb="=(3*(0.89*(1-%s)+0.04*%s) if %s==1 else 3.0)" % (ACC, ACC, LOOKM), fillalpha=1, bgcolorr=0, bgcolorg=0, bgcolorb=0, bgalpha=0)
+layers.append(bar)
+for i in range(5):
+    t = "absTime.seconds"
+    cx = "=math.sin(%s*(0.35+0.11*%d)+%d*1.7)*0.44" % (t, i, i)
+    cy = "=math.cos(%s*(0.27+0.09*%d)+%d*2.3)*0.33" % (t, i, i)
+    r = (0.11 + 0.025 * i) * 0.5625      # circle radii are fractions of the width (720/1280 of the height)
+    hh = "(%f+%s*0.03)" % (0.12 * i, t)
+    ring = dn('circleTOP', 'disc%d' % i, radiusx=r, radiusy=r, softness=0.004, centerx=cx, centery=cy, bgalpha=0,
+              fillcolorr=colr(i, hh, 0.85, 0.6, 'r'), fillcolorg=colr(i, hh, 0.85, 0.6, 'g'), fillcolorb=colr(i, hh, 0.85, 0.6, 'b'), fillalpha=1,
+              bgcolorr=0, bgcolorg=0, bgcolorb=0)
+    core = dn('circleTOP', 'core%d' % i, radiusx=r * 0.45, radiusy=r * 0.45, softness=r * 0.45, centerx=cx, centery=cy,
+              fillcolorr=3.0, fillcolorg=2.7, fillcolorb=2.1, fillalpha=1, bgalpha=0, bgcolorr=0, bgcolorg=0, bgcolorb=0)
+    layers += [ring, core]
+dem = dn('compositeTOP', 'objects', *reversed(layers[1:]), operand='over')      # first input is on top
+demsum = dn('compositeTOP', 'scene', dem, tint, operand='over')
+do = d.create(td.outTOP, 'out1'); do.inputConnectors[0].connect(demsum); do.par.label = 'demo source'
+src = nat(c, 'switchTOP', 'src', d.outputConnectors[0], i1)
+src.par.index.expr = "(1 if len(parent().inputConnectors[0].connections) else 0) + 0*absTime.frame + 0*parent().op('in1').width"
+setres(src)
+
 fb = c.create(td.feedbackTOP, 'feedback'); fb.inputConnectors[0].connect(src)
 fb.par.format = 'rgba16float'; setres(fb)
 fb.par.reset.expr = 'parent().par.Reset'

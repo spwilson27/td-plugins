@@ -179,6 +179,44 @@ def finish_v2(c, name, result, src, label='result', extra_outs=()):
     print('saved', p)
 # ======================= end v2 additions =======================
 
+# ---- native-build helpers (natB) ----
+import math
+def mk(par, typ, name, ins=(), **kw):
+    """create op, set params. value str starting with '=' -> expression; tuple/list for menus not needed."""
+    o = par.create(typ, name)
+    for k, v in kw.items():
+        p = getattr(o.par, k)
+        if isinstance(v, str) and v.startswith('='):
+            p.expr = v[1:]
+        else:
+            p.val = v
+    for i, s in enumerate(ins):
+        if s is not None:
+            o.inputConnectors[i].connect(s.outputConnectors[0] if getattr(s, 'isCOMP', False) else s)
+    return o
+def resx(o, par_expr_w="op('res')['w']", par_expr_h="op('res')['h']"):
+    o.par.outputresolution = 'custom'; o.par.resolutionw.expr = par_expr_w; o.par.resolutionh.expr = par_expr_h
+    return o
+def keys_dat(par, name, rows):
+    d = par.create(td.tableDAT, name)
+    d.clear(); d.appendRow(['pos', 'r', 'g', 'b', 'a'])
+    for r in rows: d.appendRow([('%.5g' % x) for x in r])
+    return d
+def ramp_from(par, name, rows, w=1024, h=1, typ='horizontal', **kw):
+    d = keys_dat(par, name + '_keys', rows)
+    r = par.create(td.rampTOP, name)
+    r.par.dat = d; r.par.type = typ
+    r.par.extendleft = 'hold'; r.par.extendright = 'hold'
+    r.par.outputresolution = 'custom'; r.par.resolutionw = w; r.par.resolutionh = h
+    r.par.format = 'rgba16float'
+    for k, v in kw.items():
+        p = getattr(r.par, k)
+        if isinstance(v, str) and v.startswith('='): p.expr = v[1:]
+        else: p.val = v
+    return r
+def smooth(a, b, x):
+    t = min(1, max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t)
+
 COMP = 'TOP_false_color'
 c = new_comp(COMP)
 add_pars(c, [
@@ -202,24 +240,121 @@ add_pars(c, [
     ('Colorc', 'rgb', (0.93, 0.91, 0.85)),
     *COMMON,
 ])
-src = v2_input(c, None)
+P = 'parent().par.'
+PP = 'parent(2).par.'
+# ---------------- input + demo ----------------
+res_chop(c)
+i1 = c.create(td.inTOP, 'in1')
+dm = new_demo(c)
+src = c.create(td.switchTOP, 'src')
+src.par.index.expr = HASIN
+setres(src); src.par.format = 'rgba16float'
 in2 = c.create(td.inTOP, 'in2')
 add_mod(c, 'in3')
-drv = c.create(td.switchTOP, 'driver')
-drv.inputConnectors[0].connect(src); drv.inputConnectors[1].connect(in2)
-drv.par.index.expr = "1 if (parent().par.Driver=='in2' and len(parent().inputConnectors)>1 and parent().inputConnectors[1].connections) else 0"
-setres(drv); drv.par.format = 'rgba16float'
-p = lambda n: 'parent().par.' + n
-g = glsl(c, 'falsecolor', rd(COMP, 'fc.glsl'), inputs=[src, drv], res=True, vecs=[
-    uP(),
-    ('uA', [p('Map') + '.menuIndex', "%s+%s*%s" % (p('Gain'), p('Modamount'), MOD('band1')), p('Bias'), p('Invert')]),
-    ('uB', [p('Edges'), p('Noise'), p('Isotherms'), p('Mixoriginal')]),
-    ('uC', [p('Crosshair'), p('Legend'), p('Targetx'), p('Targety')]),
-    ('uD', [p('Hudcolorr'), p('Hudcolorg'), p('Hudcolorb'), 1]),
-    ('uE', [p('Edgecolorr'), p('Edgecolorg'), p('Edgecolorb'), 1]),
-    ('uF', [p('Coloraa') if False else p('Colorar'), p('Colorag'), p('Colorab'), 1]),
-    ('uG', [p('Colorbr'), p('Colorbg'), p('Colorbb'), 1]),
-    ('uH', [p('Colorcr'), p('Colorcg'), p('Colorcb'), 1]),
-])
-finish_v2(c, COMP, g, src)
+drv = mk(c, td.switchTOP, 'driver', [src, in2],
+         index="=1 if (parent().par.Driver=='in2' and len(parent().inputConnectors)>1 and parent().inputConnectors[1].connections) else 0",
+         format='rgba16float')
+setres(drv)
+
+# ---------------- palettes: one Ramp TOP per map, picked by a Switch ----------------
+def rk(f, n=33): return [(i / (n - 1),) + tuple(f(i / (n - 1))) + (1,) for i in range(n)]
+pal = c.create(td.baseCOMP, 'palettes')
+therm = [(0, 0, 0, 0), (.25, .18, 0, .35), (.5, .85, .05, .1), (.75, 1, .65, .05), (1, 1, 1, .9)]
+r_th = ramp_from(pal, 'thermal', [t + (1,) for t in therm])
+def xray(l):
+    x = l ** .8; a = smooth(0, .5, x); b = smooth(.45, 1, x)
+    return (.12 * a + .6 * b, .3 * a + .8 * b, .45 * a + .95 * b)
+r_xr = ramp_from(pal, 'xray', rk(xray))
+def night(l):
+    return (.04 * l ** .75 + .03 * l, 1. * l ** .75 + .2 * l, .22 * l ** .75 + .05 * l)
+r_nv = ramp_from(pal, 'night', rk(night))
+# custom 3-stop gradient: Constant CHOPs (driven by Colora/b/c) -> Join -> CHOP to DAT -> Ramp keys
+cc = []
+for k, (nm, pos) in enumerate((('Colora', 0), ('Colorb', 0.5), ('Colorc', 1))):
+    kc = pal.create(td.constantCHOP, 'stop_' + nm.lower())
+    for j, (ch, ex) in enumerate((('pos', str(pos)), ('r', 'parent(2).par.%sr' % nm), ('g', 'parent(2).par.%sg' % nm),
+                                  ('b', 'parent(2).par.%sb' % nm), ('a', '1'))):
+        setattr(kc.par, 'name%d' % j, ch); getattr(kc.par, 'value%d' % j).expr = ex
+    cc.append(kc)
+jn = pal.create(td.joinCHOP, 'stops')
+for i, kc in enumerate(cc): jn.inputConnectors[i].connect(kc)
+jd = pal.create(td.choptoDAT, 'stops_table'); jd.par.chop = jn; jd.par.names = True; jd.par.output = 'colperchan'
+r_cu = pal.create(td.rampTOP, 'custom'); r_cu.par.dat = jd; r_cu.par.type = 'horizontal'
+r_cu.par.extendleft = 'hold'; r_cu.par.extendright = 'hold'
+r_cu.par.outputresolution = 'custom'; r_cu.par.resolutionw = 1024; r_cu.par.resolutionh = 1; r_cu.par.format = 'rgba16float'
+palsw = pal.create(td.switchTOP, 'palette')
+for i, r in enumerate((r_th, r_xr, r_nv, r_cu)): palsw.inputConnectors[i].connect(r)
+palsw.par.index.expr = 'parent(2).par.Map.menuIndex'
+po = pal.create(td.outTOP, 'palette_out'); po.inputConnectors[0].connect(palsw)
+
+# ---------------- one GLSL core: grain, gain/bias, palette lookup, edges, isotherms, night post, HUD ----------------
+uP_ = uP()
+gl = c.create(td.glslTOP, 'falsecolor')
+gl.par.pixeldat = mkdat(c, 'falsecolor_code', rd(COMP, 'fc.glsl'))
+gl.inputConnectors[0].connect(src); gl.inputConnectors[1].connect(drv); gl.inputConnectors[2].connect(pal.outputConnectors[0])
+vecs = [
+    ('uP', [PEXPR, 8, 240, 0]),
+    ('uA', [P + 'Map.menuIndex', "%s+%s*%s" % (P + 'Gain', P + 'Modamount', MOD('band1')), P + 'Bias', P + 'Invert']),
+    ('uB', [P + 'Edges', P + 'Noise', P + 'Isotherms', P + 'Mixoriginal']),
+    ('uC', [P + 'Crosshair', P + 'Legend', P + 'Targetx', P + 'Targety']),
+    ('uD', [P + 'Hudcolorr', P + 'Hudcolorg', P + 'Hudcolorb', 1]),
+    ('uE', [P + 'Edgecolorr', P + 'Edgecolorg', P + 'Edgecolorb', 1]),
+]
+gl.seq.vec.numBlocks = len(vecs)
+for i, (n, vals) in enumerate(vecs):
+    gl.par['vec%dname' % i] = n
+    for j, v in enumerate(vals):
+        q = gl.par['vec%dvalue%s' % (i, 'xyzw'[j])]
+        if isinstance(v, str): q.expr = v
+        else: q.val = v
+gl.par.format = 'rgba16float'; setres(gl)
+# ---------------- demo source (native): discs, bar, scan line, ramp strip ----------------
+DH = "op('../res')['h']"; DW = "op('../res')['w']"
+A = "(6.2831853*((absTime.seconds/8.0)%1.0))"
+def dres(o): return resx(o, DW, DH)
+bg = mk(dm, td.noiseTOP, 'bg_noise', type='simplex3d', period=0.45, mono=True, amp=0.5, offset=0.5, tz='=absTime.seconds*0.12', format='rgba16float'); dres(bg)
+bg_l = mk(dm, td.mathTOP, 'bg_level', [bg], gain=0.10, postoff=0.025, format='rgba16float')
+cell = mk(dm, td.rectangleTOP, 'grid_cell', sizeunit='fraction', centerunit='fraction', sizex=0.5, sizey=0.5, centerx=-0.25, centery=-0.25,
+          bgalpha=1, bgcolorr=0, bgcolorg=0, bgcolorb=0, borderwidth=0, softness=0, format='rgba16float')
+cell.par.outputresolution = 'custom'; cell.par.resolutionw.expr = DH + '/12'; cell.par.resolutionh.expr = DH + '/12'
+grid = mk(dm, td.tileTOP, 'grid', [cell], repeatx='=12*%s/%s' % (DW, DH), repeaty=12, format='rgba16float'); dres(grid)
+grid_l = mk(dm, td.mathTOP, 'grid_level', [grid], gain=0.05, format='rgba16float')
+bg_sum = mk(dm, td.compositeTOP, 'bg_sum', [bg_l, grid_l], operand='add', format='rgba16float')
+x = mk(dm, td.reorderTOP, 'bg', [bg_sum], outputalphachan='one', format='rgba16float')
+for i in range(6):
+    k1 = 1 + i % 2; k2 = 1 + i // 3
+    cx = "math.sin(%s*%d+%.2f)*.4*%s" % (A, k1, i * 1.7, DW); cy = "math.cos(%s*%d+%.2f)*.30*%s" % (A, k2, i * 2.3, DH)
+    r = '%.3f*%s' % (.10 + .025 * i, DH)
+    tone = (1, .08, .05) if i == 2 else (.92, .9, .84)
+    def circ(name, inp, rad, **kw):
+        o = mk(dm, td.circleTOP, name, [inp], radiusunit='pixels', centerunit='pixels', radiusx='=' + rad, radiusy='=' + rad,
+               centerx='=' + cx, centery='=' + cy, bgalpha=0, format='rgba16float', **kw); dres(o); return o
+    x = circ('disc%d' % i, x, r, fillcolorr=tone[0] * .15, fillcolorg=tone[1] * .15, fillcolorb=tone[2] * .15, fillalpha=1,
+             borderwidth=0, softness=0)
+    x = circ('glow%d' % i, x, r, fillcolorr=tone[0] * 1.2, fillcolorg=tone[1] * 1.2, fillcolorb=tone[2] * 1.2, fillalpha=1,
+             borderwidth=0, softnessunit='pixels', softness='=' + r, softnesstype='halfcosine')
+    x = circ('ring%d' % i, x, r + '*1.35', fillalpha=0, borderwidthunit='pixels', borderwidth=2.4,
+             borderr=tone[0] * .7, borderg=tone[1] * .7, borderb=tone[2] * .7, borderalpha='=.5+.5*math.sin(%s*3+%.2f)' % (A, i * 1.0))
+# rotating bar: dim base + 8 bright segments
+ROT = "math.degrees(%s)" % A
+def barrect(name, inp, ox, w, v):
+    off = '(%s)*%s' % (ox, DH)
+    o = mk(dm, td.rectangleTOP, name, [inp], sizeunit='fractionaspect', centerunit='fractionaspect', sizex='=%s*%s/%s' % (w, DH, DW), sizey='=.05*%s/%s' % (DH, DW),
+           centerx='=%s*math.cos(%s)/%s' % (off, A, DW), centery='=(-.2*%s+%s*math.sin(%s))/%s' % (DH, off, A, DW), rotate='=' + ROT,
+           fillcolorr=v, fillcolorg=v, fillcolorb=v * .95, fillalpha=1, bgalpha=0, borderwidth=0, softness=0, format='rgba16float'); dres(o); return o
+x = barrect('bar', x, '0', '.8', 0.4)
+for j in range(8):
+    x = barrect('bar_seg%d' % j, x, '%.3f' % (-.325 + .1 * j), '.05', 1.26)
+# sweeping scan line (additive)
+x = mk(dm, td.rectangleTOP, 'scanline', [x], sizeunit='pixels', centerunit='pixels', sizex='=' + DW, sizey=2.0, centerx=0,
+       centery="=(((absTime.seconds/8.0)%%1.0)-0.5)*%s" % DH, fillcolorr=.4, fillcolorg=.4, fillcolorb=.4, fillalpha=1, bgalpha=0,
+       borderwidth=0, softness=0, operand='add', format='rgba16float'); dres(x)
+# range strip at the top
+strip = ramp_from(dm, 'range_strip', [(0, 0, 0, 0, 1), (1, 1, .98, .95, 1)], w=1280, h=64)
+strip.par.resolutionw.expr = DW; strip.par.resolutionh.expr = '%s*0.07' % DH
+x = mk(dm, td.compositeTOP, 'with_strip', [strip, x], operand='over', prefit='nativeres', justifyv='top', size='input2', format='rgba16float')
+demo_out(dm, x)
+src.inputConnectors[0].connect(dm.outputConnectors[0]); src.inputConnectors[1].connect(i1)
+result = gl
+finish_v2(c, COMP, result, src)
 report(c)

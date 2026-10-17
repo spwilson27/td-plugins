@@ -47,7 +47,8 @@ Machine-checked by `tools/validate.py` (component) and `tools/validate_snippet.p
 `conform.py` colours the node by family (TOP blue, GEN green, POP purple, MAT orange), turns the node viewer on to show `out1` (or `preview`), and puts the description in the node comment.
 
 ## 5. Rendering and technique
-- **GPU-first:** GLSL TOP/POP/MAT, POPs, Feedback TOP. No per-frame Python loops.
+- **Native nodes first:** build with built-in TouchDesigner operators (Blur, Level, Lookup, Displace, Composite, Feedback, Time Machine, Luma Blur, Bloom, Remap, Edge, Noise/Ramp, POPs such as Noise, Math, Lookup Texture, Proximity, Particle...) so a non-programmer can read the network. Use GLSL only for genuinely mathy algorithms (simulations, sorting, coordinate warps, SDFs, custom shading models) or when the native network would be more than 20 % slower on the GPU. Decide with `tools/bench.py <inst> <NAME> --against <old.tox>` (interleaved medians) and record the result in the component README ("Implementation" section).
+- **GPU work, no per-frame Python loops.**
 - **Pixel formats:** `rgba16float` outputs, and `rgba32float` for simulation state.
 - **No absolute paths in the tox.** Use relative or `parent()` references. GLSL is embedded in DATs. `validate.py` fails any `/build/` reference.
 
