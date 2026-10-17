@@ -1,0 +1,6 @@
+{
+  "Majorradius": "Distance from the torus centre to the middle of the tube, in world units.",
+  "Minorradius": "Radius of the tube, in world units.",
+  "Axis": "Axis the ring is wound around: x, y or z. The ring lies in the perpendicular plane.",
+  "Color": "Surface albedo colour."
+}

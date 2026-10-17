@@ -1,0 +1,18 @@
+{
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom.",
+ "Shape": "Glass shape. morph: blob that morphs between sphere and rounded cube. torus: ring. cube: rounded cube.",
+ "Ior": "Index of refraction. 1 = no bend; higher bends the background more (glass is about 1.5).",
+ "Dispersion": "Spread of IOR between the R, G and B channels. 0 = none, higher gives stronger chromatic colour fringes.",
+ "Frost": "Blur of the refracted background, like frosted glass. 0 = clear.",
+ "Size": "Scale of the glass shape. 1 = default; also scales the refraction strength.",
+ "Morphspeed": "Whole number of morph cycles per 8-second animation loop. 0 = no morphing.",
+ "Spin": "Whole number of full rotations per 8-second animation loop. 0 = no spin.",
+ "Highlights": "Gain of the specular, fresnel and glint highlights. 0 = none.",
+ "Absorption": "Thickness-based tint: thicker glass darkens and colours the refracted image more. 0 = none.",
+ "Camdistance": "Camera distance from the shape in world units. Larger makes the shape smaller on screen.",
+ "Bgscale": "Scale of the background mapping. Larger values reduce the refraction offset of the background.",
+ "Modamount": "Strength of the in2 modulation CHOP: band1 adds Modamount * band1 * 0.5 to Ior."
+}

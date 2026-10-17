@@ -1,0 +1,8 @@
+{
+ "Mode": "grid: infinite repetition. finite: limited number of cells each side of the origin. polar: copies rotated around an axis.",
+ "Spacing": "Cell size per axis in world units. 0 disables repetition on that axis.",
+ "Count": "Finite mode: cells on each side of the origin per axis.",
+ "Polarcount": "Polar mode: number of copies around the axis.",
+ "Polaraxis": "Polar mode: axis the copies rotate around. Offset the object from it upstream.",
+ "Colorvary": "Per-cell brightness variation. 0 = identical cells."
+}

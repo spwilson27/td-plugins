@@ -17,6 +17,7 @@ DEFAULTS = dict(
     group_gap=100,    # horizontal gap between group blocks
     group_pad=30,     # padding of group boxes (left/right/bottom)
     group_title=60,   # extra padding at the top of group boxes (title bar)
+    group_titles=None,  # {group: height or callable(box_width) -> height}, e.g. Annotate title + body text
     sweeps=4,         # barycenter sweeps
 )
 
@@ -316,6 +317,7 @@ def layout(nodes, edges, return_groups=False, **kw):
         glayer, _ = _longest_path(order, gedges)
         order.sort(key=lambda g: (glayer[g], min(b.ox for b in ext[g][2]), str(g)))
         pad, title = o["group_pad"], o["group_title"]
+        titles = o.get("group_titles") or {}
         cx = 0
         for g in order:
             w, h, bs = ext[g]
@@ -324,9 +326,17 @@ def layout(nodes, edges, return_groups=False, **kw):
                     b.x += cx
                 cx += w + o["group_gap"]
             else:
+                t = titles.get(g, title)
+                if callable(t):          # header height may depend on the box width (wrapped text)
+                    t = t(w + 2 * pad)
+                t = max(title, t)
                 for b in bs:
                     b.x += cx + pad
-                    b.y -= title
+                    b.y -= t
+                bw, bh = w + 2 * pad, h + pad + t
+                boxes[g] = [cx, -bh, bw, bh]
+                cx += bw + o["group_gap"]
+                continue
                 bw, bh = w + 2 * pad, h + pad + title
                 boxes[g] = [cx, -bh, bw, bh]
                 cx += bw + o["group_gap"]
@@ -340,6 +350,33 @@ def layout(nodes, edges, return_groups=False, **kw):
     for g, (x, y, w, h) in boxes.items():
         out_boxes[g] = (x + anchor_x, y + anchor_y, w, h)
     return (pos, out_boxes) if return_groups else pos
+
+
+def text_header_height(title_h, font, text, width, wrap=True, max_width=None,
+                       char_w=0.62, line_h=1.85, top_pad=12, bottom_pad=28):
+    """Height (network units) an Annotate's title bar + body text occupies, so nodes can start below it.
+    Calibrated against TouchDesigner's Annotate COMP: line height ~1.85 x Bodyfontsize, character width
+    ~0.62 x Bodyfontsize (slightly conservative so it over- rather than under-estimates)."""
+    if not text:
+        return title_h + top_pad
+    avail = width - 2 * 10
+    if max_width:
+        avail = min(avail, max_width)
+    per_line = max(10, int(avail / (char_w * font)))
+    lines = 0
+    for para in str(text).split("\n"):
+        if not wrap:
+            lines += 1
+            continue
+        n, cur = 1, 0
+        for word in para.split(" "):
+            add = len(word) + (1 if cur else 0)
+            if cur + add > per_line and cur:
+                n += 1; cur = len(word)
+            else:
+                cur += add
+        lines += n
+    return title_h + top_pad + lines * line_h * font + bottom_pad
 
 
 # ---- overlap.py ----
@@ -478,10 +515,32 @@ def _gather(comp, annotate_groups):
     return nodes, _edges(ops, paths), annotates
 
 
+def _par(o, name, default=None):
+    p = getattr(getattr(o, "par", None), name, None)
+    try:
+        return p.eval() if p is not None else default
+    except Exception:
+        return default
+
+
+def annotate_header(a):
+    """Callable width -> header height (title bar + wrapped body text) for an Annotate COMP."""
+    title_h = _par(a, "Titleheight", 30) or 30
+    font = _par(a, "Bodyfontsize", 9) or 9
+    text = _par(a, "Bodytext", "") or ""
+    wrap = bool(_par(a, "Bodywordwrap", True))
+    maxw = _par(a, "Bodymaxwidth", None) if _par(a, "Bodylimitwidth", False) else None
+    return lambda width: text_header_height(title_h, font, text, width, wrap, maxw)
+
+
+def _annotate_headers(annotates):
+    return dict((a.path, annotate_header(a)) for a in annotates)
+
+
 def _organize_one(comp, annotate_groups):
     nodes, edges, annotates = _gather(comp, annotate_groups)
     before = len(find_overlaps(nodes))
-    pos, boxes = layout(nodes, edges, return_groups=True)
+    pos, boxes = layout(nodes, edges, return_groups=True, group_titles=_annotate_headers(annotates))
     by_path = dict((c.path, c) for c in comp.children)
     ordered = sorted(nodes, key=lambda n: n["docked_to"] is not None)
     for n in ordered:

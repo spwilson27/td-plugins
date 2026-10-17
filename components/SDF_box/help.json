@@ -1,0 +1,5 @@
+{
+  "Size": "Full box extents along X, Y and Z, in world units.",
+  "Roundness": "Edge rounding radius in world units. 0 = sharp edges; clamped to the smallest half-size.",
+  "Color": "Surface albedo colour."
+}

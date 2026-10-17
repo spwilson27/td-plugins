@@ -1,0 +1,7 @@
+{
+ "Mode": "Deformation type. twist: rotate around Axis by an angle growing along it. bend: bend along Axis. noise: displace the surface with noise. round: inflate (rounds edges). onion: hollow shell.",
+ "Amount": "Strength: twist/bend rate (radians per world unit), noise displacement size, round radius, or onion shell thickness, depending on Mode.",
+ "Axis": "Axis used by twist and bend (x, y or z). Ignored by the other modes.",
+ "Frequency": "Noise mode only: spatial frequency of the noise. Higher = finer detail.",
+ "Noiseoffset": "Noise mode only: XYZ pan of the noise field. Animate it to make the surface flow."
+}

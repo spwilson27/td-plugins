@@ -1,0 +1,19 @@
+{
+ "Points": "Number of tracked feature points (1-64).",
+ "Labelmode": "id: 5-digit ID. coords: pixel coordinates. both: ID and coordinates.",
+ "Labelcolor": "Colour of the labels: red or white.",
+ "Fontsize": "Label height in pixels; steps in multiples of 7.",
+ "Boxsize": "Size of the square boxes around points, in pixels.",
+ "Linecount": "Number of connecting lines between points.",
+ "Gridsize": "Spacing of the background grid in pixels.",
+ "Threshold": "Brightness a pixel needs to be accepted as a feature point.",
+ "Refresh": "How many times per 8 s cycle the point selection is re-seeded. 0 = never.",
+ "Jitter": "Amount of periodic jitter on the points.",
+ "Dim": "Brightness of the input image under the HUD. 1 = unchanged.",
+ "Scanlines": "Strength of the scanline overlay. 0 = off.",
+ "Modamount": "Scales the modulation CHOP (in2): band1 moves Jitter, band2 moves Boxsize. 0 = ignore.",
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom."
+}

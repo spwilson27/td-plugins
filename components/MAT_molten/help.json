@@ -1,0 +1,23 @@
+{
+ "Heat": "HDR emission gain of the glowing cracks. Higher = brighter, blooms more.",
+ "Cooling": "0 = hot, 1 = cold. Higher narrows the cracks, lowers temperature and adds ash crust.",
+ "Crackwidth": "Width of the glowing cracks. Higher = wider cracks.",
+ "Crackscale": "Size scale of the crack network. Higher = more, smaller cells.",
+ "Flow": "Strength of the flowing domain warp that bends the crack network.",
+ "Streaks": "Strength of hot streaks flowing inside the cracks.",
+ "Pulse": "Strength of the slow heat pulsing (two pulses per preview cycle). 0 = steady.",
+ "Crustbump": "Strength of the relief (bump) on the cooled crust.",
+ "Crustcolor": "Albedo of the cooled crust.",
+ "Glowtint": "Tint multiplied into the emitted glow.",
+ "Envrot": "Rotates the studio environment lighting around the vertical axis, as a 0-1 fraction of a turn.",
+ "Envint": "Intensity of the procedural studio environment lighting.",
+ "Modamount": "Scale of the in1 modulation CHOP. 0 = ignore it.",
+ "Speed": "Animation speed multiplier for flow and cracks. 0 freezes.",
+ "Resolution": "Output size in pixels of the internal preview render.",
+ "Exposure": "Preview exposure multiplier before tonemapping.",
+ "Bloom": "Strength of the preview glow around bright cracks.",
+ "Spinturns": "Whole turns the preview geometry rotates per preview cycle.",
+ "Tilt": "Tilt of the preview torus knot in degrees.",
+ "Camdist": "Preview camera distance in world units.",
+ "Backdrop": "Brightness of the preview background."
+}

@@ -1,0 +1,7 @@
+{
+ "Resolution": "Voxels per side of the baked 3D grid. Higher = more detail and polygons, slower and heavier.",
+ "Boundscenter": "Centre of the sampled box in world units.",
+ "Boundssize": "Size (X, Y, Z) of the sampled box in world units. Geometry outside it is clipped and left open.",
+ "Inflate": "Iso-surface offset in world units. Positive grows the mesh, negative shrinks it.",
+ "Normals": "none: no normals. gradient: smooth normals from the SDF gradient. surface: flat per-face normals."
+}

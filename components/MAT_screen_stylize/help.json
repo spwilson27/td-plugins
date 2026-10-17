@@ -1,0 +1,22 @@
+{
+ "Mode": "bayer: ordered dither. halftone: rotated dots. ascii: text glyphs chosen by brightness.",
+ "Cellsize": "Cell height in render pixels (ASCII cells are half as wide). Resolution dependent.",
+ "Levels": "Bayer mode: number of output levels. 2 = pure two-tone.",
+ "Angle": "Halftone mode: dot-screen angle in degrees.",
+ "Glyphs": "ASCII mode: up to 16 characters ordered dark to light.",
+ "Color1": "Dark tone of the two-tone output.",
+ "Color2": "Light tone of the two-tone output.",
+ "Contrast": "Contrast of the shaded luminance around 0.5. 1 = unchanged.",
+ "Invert": "Swap the dark and light mapping.",
+ "Ambient": "Minimum ambient light so shadows are not fully dark.",
+ "Rim": "Strength of the rim light at silhouette edges.",
+ "Spinlight": "Whole revolutions the key light makes around Y per preview cycle. 0 = fixed Lightdir.",
+ "Lightdir": "Key light direction in world space.",
+ "Modamount": "Scales the modulation CHOP (in1). band1 adds contrast, band2 shrinks Cellsize. 0 = ignore.",
+ "Resolution": "Preview only: size in pixels of the internal preview render.",
+ "Turns": "Preview only: whole revolutions of the objects per animation cycle.",
+ "Background": "Preview only: background colour.",
+ "Camdistance": "Preview only: camera distance in world units.",
+ "Showtorus": "Preview only: show the torus.",
+ "Showsphere": "Preview only: show the sphere."
+}

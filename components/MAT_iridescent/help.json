@@ -1,0 +1,22 @@
+{
+  "Preview": "Preview shape: torus or fat (thicker) torus.",
+  "Filmthickness": "Mean thin-film thickness in nanometres; sets the base interference colours (hundreds of nm gives rainbow hues).",
+  "Filmvariation": "Noise-driven variation of film thickness in nanometres; higher = more colour change across the surface.",
+  "Filmior": "Index of refraction of the thin film, e.g. 1.45 for oil.",
+  "Substrateior": "Index of refraction of the surface under the film; changes the strength of the interference.",
+  "Iridescence": "0 = plain metallic reflection, 1 = full interference colour.",
+  "Fresnelpower": "Exponent of the grazing-angle rim falloff; higher = rainbow rim confined closer to the silhouette.",
+  "Sheen": "Strength of the anisotropic sheen highlights. 0 = off.",
+  "Anisotropy": "Blend from round highlights (0) to stretched brushed-metal highlights (1).",
+  "Sheenexp": "Sharpness of the sheen highlight; higher = tighter and shinier.",
+  "Brushangle": "Direction of the brushed sheen in turns (0-1 = 0-360 degrees).",
+  "Oilscale": "Frequency of the oil-slick thickness noise in world units; higher = finer swirls.",
+  "Oilmotion": "Radius of the looping path the noise travels in; larger = more visible swirling over time. 0 = static.",
+  "Basecolor": "Colour of the underlying surface; only a faint contribution since the look is mostly reflection.",
+  "Roughness": "Blur of the environment reflection. 0 = mirror sharp.",
+  "Envrotation": "Rotates the environment around the vertical axis, 0-1 = one full turn.",
+  "Envintensity": "Brightness multiplier of the reflected environment.",
+  "Spin": "Number of full preview rotations per animation cycle. 0 = no spin.",
+  "Camdistance": "Preview camera distance in world units; larger = smaller object.",
+  "Resolution": "Output size in pixels of the internal preview render."
+}

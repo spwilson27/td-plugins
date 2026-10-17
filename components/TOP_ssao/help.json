@@ -1,0 +1,18 @@
+{
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom.",
+ "Depthmode": "Depth encoding on in2. linear: eye-space distance in R, in world units. nonlinear: raw Render TOP depth buffer, linearised with Near and Far.",
+ "Near": "Camera near clip distance. Must match the Camera COMP (nonlinear depth only).",
+ "Far": "Camera far clip distance. Must match the Camera COMP. Depths at or beyond it count as sky.",
+ "Depthscale": "Multiplier applied to the depth values to convert them to the same units as Radius.",
+ "Normalenc": "Normal encoding on in3. signed: view-space XYZ in -1..1. packed: encoded 0..1.",
+ "Fov": "Camera vertical field of view in degrees, used to rebuild view-space positions. Match your camera.",
+ "Radius": "Sampling radius of the occlusion in world units. Larger = broader, softer shadowing.",
+ "Samples": "Hemisphere samples per pixel (4-64). More = smoother but slower.",
+ "Intensity": "Strength of the darkening (0-3).",
+ "Bias": "Offset that prevents surfaces from shadowing themselves. Raise if flat surfaces look dirty.",
+ "Power": "Contrast curve of the AO. Higher = darker, more contrasty occlusion.",
+ "Blur": "Blur radius in pixels applied to the AO mask before it is multiplied into the colour. 0 = raw, noisy AO."
+}

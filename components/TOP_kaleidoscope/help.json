@@ -1,0 +1,19 @@
+{
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom.",
+ "Look": "Colour scheme of the built-in demo source only (used when in1 is unconnected). original: default colours. mono: black and bone-white. A connected input is not recoloured.",
+ "Accent": "0-1. In mono Look, turns the mid-bright band of the image red. No effect in original Look.",
+ "Mode": "Symmetry type. N-fold radial; mirror tiles square, triangle or hex; hyperbolic Poincare disk {P,Q}.",
+ "Segments": "Number of mirrored segments (N) in radial mode, or P in hyperbolic mode.",
+ "Hyperq": "Q of the hyperbolic {P,Q} tiling; forced valid so that (P-2)(Q-2) > 4. Only in hyperbolic mode.",
+ "Tiles": "Number of tiles across the image in the tile modes.",
+ "Rotation": "Rotation of the pattern in degrees.",
+ "Zoom": "Zoom of the pattern. Above 1 zooms in.",
+ "Srczoom": "How much of the source image is used. Lower = smaller source region, magnified.",
+ "Center": "Centre of the pattern (X, Y). In hyperbolic mode it drives a Moebius translation of the tiling.",
+ "Animate": "On: the pattern spins and drifts over time.",
+ "Speed": "Rate of the spin and drift when Animate is on.",
+ "Noisespeed": "Animation speed of the built-in demo source (used when in1 is unconnected)."
+}

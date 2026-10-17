@@ -1,0 +1,17 @@
+{
+ "Mode": "smear: previous output is advected along the flow and mixed with the source. warp: source is displaced by the flow. viz: flow shown as colour (hue = direction, brightness = speed).",
+ "Gain": "Strength of the effect, or brightness of the flow visualisation.",
+ "Persistence": "Smear mode: how much of the previous frame is kept. Near 1 = long trails.",
+ "Smoothing": "Temporal smoothing of the flow. 0 = raw.",
+ "Iterations": "Lucas-Kanade refinement passes (1-3). More = better for larger motion, slower.",
+ "Regularization": "Damps noisy vectors in flat areas. Higher = fewer false vectors but weaker flow.",
+ "Active": "On: compute flow and update feedback. Off: freeze.",
+ "Reset": "Pulse: clear the feedback buffers.",
+ "Flowscale": "Scale of the flow computation relative to the output. Larger for subtle motion, smaller for fast motion.",
+ "Look": "original: the internal demo source keeps its colours. mono: demo source becomes black, bone-white and grey. Only affects the demo shown with in1 unconnected.",
+ "Accent": "Amount (0-1) of red accent tinted onto one object of the demo source (in1 unconnected). Has no effect on a connected in1.",
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom."
+}

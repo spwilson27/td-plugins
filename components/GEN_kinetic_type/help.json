@@ -1,0 +1,20 @@
+{
+ "Text": "The string to lay out, one POP point per glyph. One line only.",
+ "Mode": "scatter: glyphs fly apart on each beat. slit: glyphs are stretched into slits. noise: glyphs are warped by noise. extrude: glyphs are stacked into Layers copies along depth.",
+ "Speed": "Motion speed multiplier. 1 = normal; 0 freezes the animation.",
+ "Trigger": "Pulse: fire a scatter burst now. It fades out according to Decay.",
+ "Autobeat": "On: beats fire automatically at Beatspercycle per 8 s cycle (at Speed 1). Off: only Trigger and the modulation beat fire.",
+ "Beatspercycle": "Number of automatic beats per 8 second cycle at Speed 1. Used when Autobeat is on.",
+ "Amount": "Overall strength of the motion for the current Mode. 0 = glyphs at rest.",
+ "Decay": "How quickly a scatter burst fades after a beat; higher values settle faster.",
+ "Stretch": "Slit mode: how far glyphs are stretched into slits.",
+ "Layers": "Extrude mode: number of stacked copies of each glyph. Other modes use one layer.",
+ "Depth": "Extrude mode: total distance in world units spanned by the stacked layers.",
+ "Fontname": "Font used for the glyph atlas and the out2 text mesh. Falls back to the TouchDesigner default if not installed.",
+ "Size": "Glyph size multiplier (1 = default).",
+ "Spacing": "Distance between glyphs along X (1 = default fixed pitch).",
+ "Seed": "Random seed for per-glyph motion; change it for a different scatter pattern.",
+ "Tint": "Base colour of the glyphs, written to the Color point attribute.",
+ "Accent": "Colour that some glyphs are blended towards.",
+ "Accentamt": "Fraction of glyphs that receive the Accent colour (0-1)."
+}

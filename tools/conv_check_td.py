@@ -57,6 +57,8 @@ _ov = _ns['check'](c)
 if _ov: conv.append('overlapping nodes (%d): %s' % (len(_ov), str(_ov[:4])))
 if fam in ('TOP', 'POP') and ins and c.op('demo') is None:
     conv.append('preview-only demo sources must live in a Base COMP named demo (gated off when inputs are connected)')
+nohelp = sorted({p.tupletName for p in c.customPars if not (p.help or '').strip()})
+if nohelp: conv.append('parameters without help text (%d): %s' % (len(nohelp), ' '.join(nohelp[:12])))
 # UI-only expressions (enable / default / bind) are evaluated by TouchDesigner when the parameter panel is drawn,
 # so a broken one only shows up as a warning in the UI. Evaluate them all here, in their owner's context.
 for o in [c] + c.findChildren(type=COMP):

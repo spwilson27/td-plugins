@@ -1,0 +1,20 @@
+{
+ "Resolution": "Output image size in pixels.",
+ "Camera": "Camera COMP to render from (position, rotation and FOV are read live). Empty = built-in orbiting camera.",
+ "Orbitspeed": "Built-in camera orbit speed in degrees per second. Only used when Camera is empty.",
+ "Maxdist": "Maximum ray distance in world units; rays beyond it count as misses (background).",
+ "Maxsteps": "Maximum raymarch steps per pixel. Higher = fewer holes at grazing angles, slower.",
+ "Epsilon": "Hit threshold in world units. Smaller = sharper, more precise surfaces but needs more steps.",
+ "Stepscale": "Multiplier on each raymarch step. Below 1 is safer for twisted, noisy or repeated fields; 1 = fastest.",
+ "Lightazimuth": "Key light direction around the vertical axis, in degrees.",
+ "Lightelevation": "Key light height above the horizon, in degrees (90 = straight down).",
+ "Shadows": "Soft-shadow hardness. Higher = sharper shadows; 0 = shadows off.",
+ "Ao": "Ambient occlusion strength darkening crevices. 0 = off.",
+ "Reflectivity": "Mirror reflection of the environment, with boosted fresnel at grazing angles. 0 = none.",
+ "Background": "What shows on a miss. env: the in2 environment (or built-in sky). solid: Bgcolor.",
+ "Bgcolor": "Background colour used when Background is solid.",
+ "Fog": "Distance fog density. 0 = off.",
+ "Fogcolor": "Colour that distant surfaces fade to when Fog is above 0.",
+ "Gamma": "Output gamma applied after ACES tonemapping. 2.2 = standard display; 1 = linear output.",
+ "Alphabg": "On: misses output alpha 0 (transparent background) instead of the background colour."
+}

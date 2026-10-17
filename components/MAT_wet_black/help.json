@@ -1,0 +1,23 @@
+{
+  "Wetness": "0 = satin, 1 = sharp clearcoat; also strengthens the pooled-fluid film.",
+  "Bump": "Strength of normal perturbation from the flow noise and drips. 0 = smooth.",
+  "Scale": "Frequency of the flowing noise in world units; higher = finer ripples.",
+  "Flow": "Amount of the downward-flowing noise. 0 = none.",
+  "Dripscale": "Density of drip columns along world X and Z; higher = more, narrower drips.",
+  "Dripamt": "Strength of the falling drip beads and trails. 0 = no drips.",
+  "Roughness": "Clearcoat roughness, i.e. blur of the environment reflection. 0 = mirror sharp.",
+  "Reflect": "Gain of the clearcoat reflection of the environment.",
+  "Basecolor": "Colour of the underlying near-black surface.",
+  "Speed": "Speed of the material and preview animation. 1 = normal, 0 = frozen.",
+  "Envmix": "Blend between the built-in procedural studio environment (0) and the equirect environment map on in1 (1).",
+  "Envrot": "Rotates the environment around the vertical axis, 0-1 = one full turn.",
+  "Envgain": "Brightness multiplier of the environment that is reflected or refracted.",
+  "Accent": "Strength of the red accent light bar in the procedural environment. 0 = no red bar.",
+  "Resolution": "Output size in pixels of the internal preview render.",
+  "Geometry": "Preview shapes: both shows a sphere and a torus knot, sphere or knot shows only that one.",
+  "Spin": "Number of full preview rotations per animation cycle. 0 = no spin.",
+  "Camdist": "Preview camera distance from the objects in world units; larger = smaller objects.",
+  "Backdrop": "Brightness of the preview background. 0 = black.",
+  "Exposure": "Brightness multiplier applied to the preview render before tonemapping.",
+  "Vignette": "Darkening of the preview corners. 0 = none, higher = stronger."
+}

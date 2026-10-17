@@ -1,0 +1,16 @@
+{
+ "Matcap": "Which matcap to use: clay, chrome, pearl, toon, jade, gold, bone, blackglass are generated. custom uses the image on in1.",
+ "Tint": "Colour multiplied into the matcap, scaled by Tintamount.",
+ "Tintamount": "Blend between the plain matcap (0) and the matcap multiplied by Tint (1).",
+ "Brightness": "Output gain applied to the matcap colour. 1 = unchanged.",
+ "Rotate": "Rotates the matcap lookup in degrees, moving the highlights around the object.",
+ "Flipy": "Flips the matcap lookup vertically, so light comes from the other side.",
+ "Spinmatcap": "Whole revolutions of the matcap lookup per preview cycle. 0 = static; negative values spin the other way.",
+ "Modamount": "Scales the in2 modulation CHOP. band1 adds to Brightness, band2 rotates the matcap. 0 = ignore it.",
+ "Resolution": "Output size in pixels of the internal preview render.",
+ "Turns": "Number of full turns the preview shapes make per animation cycle. 0 = static.",
+ "Background": "Background colour of the preview render.",
+ "Camdistance": "Distance of the preview camera in world units.",
+ "Showtorus": "Show the torus in the preview render.",
+ "Showsphere": "Show the sphere in the preview render."
+}

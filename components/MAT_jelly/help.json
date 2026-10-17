@@ -1,0 +1,20 @@
+{
+ "Preview": "Shape rendered in the internal preview: torus or fat torus. Does not change the material.",
+ "Tint": "Surface colour of the jelly where it is thin.",
+ "Deepcolor": "Colour the light is absorbed towards where the jelly is thick.",
+ "Wrap": "Wrap-lighting amount: how far diffuse light wraps past the terminator. 0 = standard diffuse, 1 = very soft.",
+ "Translucency": "Strength of back-light bleeding through the body. 0 = opaque.",
+ "Rimglow": "Gain of the glow at grazing view angles. 0 = no rim.",
+ "Absorption": "Beer-Lambert absorption strength; higher values reach Deepcolor sooner.",
+ "Thickness": "Scale of the approximated thickness (view angle plus noise). Higher = looks thicker and darker.",
+ "Innernoise": "Amount of internal density variation from noise. 0 = uniform jelly.",
+ "Noisescale": "Frequency of the internal noise. Larger = finer detail.",
+ "Specpower": "Specular sharpness. Higher = smaller, tighter highlights.",
+ "Envintensity": "Strength of the environment reflection (fresnel).",
+ "Jiggle": "Amplitude of the vertex wobble in world units. 0 = rigid.",
+ "Jigglefreq": "Spatial frequency of the wobble across the mesh.",
+ "Jigglespeed": "Wobble cycles per preview cycle (whole number so the preview loops).",
+ "Spin": "Preview only: whole revolutions of the object per preview cycle. 0 = static.",
+ "Camdistance": "Preview only: camera distance in world units.",
+ "Resolution": "Preview only: size in pixels of the internal preview render."
+}

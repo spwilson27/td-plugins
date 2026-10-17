@@ -1,0 +1,19 @@
+{
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom.",
+ "Style": "ink: edge colour drawn over the posterized image as lines. neon: dimmed image with an additive glowing edge and hot white core.",
+ "Levels": "Number of brightness bands in the posterize (2-16). Hue and saturation are kept.",
+ "Posterizesoft": "Softness of the transitions between brightness bands. 0 = hard steps, higher = smoother blends.",
+ "Edgecolor": "Colour of the ink line or neon glow.",
+ "Edgewidth": "Edge detection tap distance in pixels. Larger values give thicker, coarser lines. Boosted by band1 modulation.",
+ "Threshold": "Edge strength cutoff. Higher values keep only strong edges, lower values pick up fine detail and noise.",
+ "Edgesoft": "Width of the soft transition at the threshold. 0 = hard aliased lines, higher = softer lines.",
+ "Colorweight": "Edge source blend: 0 = brightness-only edges, 1 = colour-gradient edges (catches hue changes).",
+ "Glowsize": "Blur size in pixels of the neon glow. Only used by the neon style.",
+ "Glowamount": "Gain of the neon glow. Boosted by the beat modulation input. Only used by the neon style.",
+ "Dim": "Neon style: brightness of the underlying image (0 = black, 1 = unchanged).",
+ "Look": "Test-source only (when in1 is unconnected): original keeps the colourful test shapes, mono switches to black/bone-white greys.",
+ "Accent": "Test-source mono look only (when in1 is unconnected): 0-1 tints one test object red. No effect on a connected in1."
+}

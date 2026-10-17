@@ -1,0 +1,21 @@
+{
+ "Layout": "grid: regular glyph cells. rain: falling columns with trails that reveal the picture. tunnel: polar layout of angle by depth around the centre.",
+ "Charset": "Glyph characters ordered dark to bright; cell luminance picks one.",
+ "Fontname": "Font used to draw the glyph atlas. Use a monospace font.",
+ "Cols": "Number of glyph columns across the image (sets cell size). Rows follow the aspect with 1:2 cells.",
+ "Speed": "Scroll speed for rain and tunnel layouts. Has no effect in grid.",
+ "Contrast": "Contrast of the luminance to glyph mapping. Higher = more extreme glyph choices.",
+ "Invert": "Reverse the glyph choice, so dark areas get dense glyphs.",
+ "Brightness": "Gain of the glyphs. Higher = brighter characters.",
+ "Background": "Amount of dim original image shown behind the glyphs (0 = black).",
+ "Tail": "Rain layout: trail length behind each falling head, in rows.",
+ "Trailfloor": "Rain layout: minimum visibility (0-1) between trails. 0 = only trails show, higher reveals more of the picture.",
+ "Twist": "Tunnel layout: spiral twist of the cells with depth. 0 = straight.",
+ "Seed": "Random seed for per-column speeds and rain glyph choices.",
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom.",
+ "Look": "original: glyphs use input colours. mono: bone-white/grey glyphs, optionally with red accents.",
+ "Accent": "Mono look: fraction (0-1) of glyphs in bright areas drawn red. 0 = none."
+}

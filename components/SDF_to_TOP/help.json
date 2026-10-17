@@ -1,0 +1,6 @@
+{
+ "Resolution": "Voxels per side of the 3D texture. Memory and cook time grow with its cube.",
+ "Boundscenter": "World-space centre of the baked box.",
+ "Boundssize": "World-space size of the baked box. The field is undefined outside it.",
+ "Precision": "f16: half-float, smaller and faster. f32: full float, more accurate distances."
+}

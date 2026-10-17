@@ -1,0 +1,5 @@
+{
+ "Translate": "Offset (X, Y, Z) added to the shape, in world units.",
+ "Rotate": "Euler rotation in degrees (X, Y, Z), applied as Rz*Ry*Rx.",
+ "Scale": "Uniform scale factor. 1 = unchanged; distances stay exact."
+}

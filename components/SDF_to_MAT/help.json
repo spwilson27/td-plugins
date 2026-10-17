@@ -1,0 +1,12 @@
+{
+ "Boundscenter": "Centre of the proxy box in the geometry's object space.",
+ "Boundssize": "Size (X, Y, Z) of the proxy box in object space. The geometry should be a box covering it; rays start on its surface.",
+ "Maxsteps": "Maximum raymarch steps per pixel. Higher = more accurate on thin or distant shapes, slower.",
+ "Epsilon": "Surface hit distance. Smaller = sharper but may need more steps.",
+ "Stepscale": "Multiplier on each march step. Below 1 is safer for inexact SDFs, but needs more steps.",
+ "Lightazimuth": "Direction of the built-in key light around the vertical axis, in degrees.",
+ "Lightelevation": "Height of the built-in key light above the horizon, in degrees.",
+ "Shadows": "Shadow hardness. Higher = sharper shadows, 0 = no shadows.",
+ "Ao": "Ambient occlusion strength. 0 = off.",
+ "Gamma": "Output gamma. 2.2 = standard sRGB-like, 1 = linear output."
+}

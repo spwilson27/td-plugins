@@ -1,0 +1,23 @@
+{
+ "Style": "cells: flat coloured cells. edges: glowing borders. cracked: shattered glass shards. stained: stained-glass look.",
+ "Seeds": "Number of Voronoi cells (2-128).",
+ "Jitter": "Seed placement: 0 = regular grid, 1 = fully random.",
+ "Speed": "Drift speed of the seeds. 0 = static.",
+ "Motion": "Distance the seeds wander. 0 = no drift.",
+ "Seed": "Random seed for seed placement.",
+ "Borderwidth": "Width of cell borders in pixels.",
+ "Glow": "Strength of the glow along cell edges.",
+ "Edgecolor": "Colour of the edge glow.",
+ "Edgetint": "How much the edge glow takes colour from the input rather than Edgecolor (0-1).",
+ "Displace": "Cracked style: how far each shard is displaced.",
+ "Delaunay": "Overlay the Delaunay triangulation lines.",
+ "Linewidth": "Width of the Delaunay lines in pixels.",
+ "Densitymode": "What seed density follows: uniform, bright areas, dark areas or edges of the input.",
+ "Densityamount": "How strongly Densitymode concentrates seeds. 0 = uniform.",
+ "Look": "original: the internal demo source keeps its colours. mono: demo source becomes black, bone-white and grey. Only affects the demo shown with in1 unconnected.",
+ "Accent": "Amount (0-1) of red accent tinted onto one object of the demo source (in1 unconnected). Only affects the demo.",
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom."
+}

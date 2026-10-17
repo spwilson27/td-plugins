@@ -1,0 +1,8 @@
+{
+ "Normal": "Direction the plane faces (X, Y, Z). It is normalised internally.",
+ "Offset": "Signed distance of the plane from the origin along Normal, in world units. Negative = below, for +Y.",
+ "Color": "Albedo of the plane.",
+ "Checker": "Enable the checker pattern, which fades with distance.",
+ "Checksize": "Size of one checker square in world units.",
+ "Color2": "Second checker colour."
+}

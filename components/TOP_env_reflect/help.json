@@ -1,0 +1,19 @@
+{
+ "Mode": "chrome: reflection blended over the colour. glass: refracted colour behind the surface mixed with the reflection.",
+ "Reflectivity": "Reflection weight (0-1) when Fresnel is 0. 1 = mirror.",
+ "Fresnel": "0 = constant Reflectivity. 1 = Schlick fresnel from Ior, so reflection is strongest at grazing edges.",
+ "Roughness": "Blurs the environment lookup (0-1). 0 = sharp mirror, higher = frosted. Scaled by the mask when Maskmode is roughness.",
+ "Ior": "Index of refraction (1 = none, 1.5 = glass). Sets Fresnel strength and how much glass bends the view.",
+ "Refraction": "Glass mode: screen-space offset of the colour behind the surface. 0 = no bend.",
+ "Maskmode": "How in4 (R) is used. roughness: scales Roughness. reflectivity: scales reflection weight. off: ignore in4.",
+ "Normalenc": "Encoding of the in2 normals. signed: XYZ in -1..1. packed: 0..1 values decoded as n*2-1.",
+ "Fov": "Vertical camera field of view in degrees for per-pixel view rays. 0 = orthographic (parallel rays).",
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom.",
+ "Envrotate": "Rotates the environment map around the vertical axis, in degrees.",
+ "Envtilt": "Tilts the environment map up/down, in degrees.",
+ "Envgain": "Brightness multiplier for the environment map. 1 = unchanged.",
+ "Tint": "Colour multiplied into the reflection (in glass mode, also the transmitted colour)."
+}

@@ -1,0 +1,10 @@
+{
+ "Fractal": "mandelbulb: 3D Mandelbrot power fractal. menger: Menger sponge. kifs: kaleidoscopic IFS folding fractal.",
+ "Iterations": "Detail level, 1-16 (Menger max 8). Higher = finer detail and slower.",
+ "Power": "Mandelbulb: power (8 is classic). KIFS: scale, clamped to 1.2-4 (2 when above 5). Menger ignores it.",
+ "Size": "Overall size of the fractal in world units.",
+ "Foldoffset": "KIFS only: offset applied at each fold.",
+ "Foldrotate": "KIFS only: rotation per iteration in degrees.",
+ "Color": "Base colour of the fractal.",
+ "Color2": "Colour blended in by the orbit trap, tinting the crevices."
+}

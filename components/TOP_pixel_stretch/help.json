@@ -1,0 +1,17 @@
+{
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom.",
+ "Direction": "Direction the pixels are smeared: down, up, left or right.",
+ "Threshold": "Luminance level (0-1) a pixel must cross to start a smear. Lower picks up darker content.",
+ "Animate": "Amount of looping sinusoidal modulation of the threshold over time, so the smear start points drift. 0 = static.",
+ "Invert": "Start the smear where the image becomes darker than the threshold instead of brighter.",
+ "Length": "Smear length as a fraction of the frame (0-1). Scaled by the band1 modulation input.",
+ "Noise": "Per-column random variation of the threshold, giving ragged, uneven smear starts. 0 = clean edge.",
+ "Streak": "Amount of per-fibre length variation inside each stripe. 0 = uniform stripe length, 1 = fibrous, hairy streaks.",
+ "Grain": "Film grain added over the result. 0 = none.",
+ "Bandwidth": "Width in pixels of each smear stripe. 1 = per-pixel columns, larger values give chunky blocks.",
+ "Revert": "Brightness of the original un-smeared image behind the streaks. 0 = black, 1 = full original.",
+ "Modamount": "How strongly the modulation CHOP input (band1) scales Length. 0 = no modulation."
+}

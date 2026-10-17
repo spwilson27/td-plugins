@@ -1,0 +1,20 @@
+{
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom.",
+ "Blend": "How the input joins the trail history. over: bright input pixels replace the faded history (luma-keyed). add: input is added to the history. max: per-channel maximum of both.",
+ "Decay": "Per-frame multiplier applied to the history. Lower fades trails faster; 1 never fades (with Add it accumulates without limit).",
+ "Scale": "Per-frame scale of the history about the centre. Above 1 trails expand outward, below 1 they shrink inward.",
+ "Rotate": "Per-frame rotation of the history in degrees. Positive and negative values spin opposite ways.",
+ "Translate": "Per-frame shift of the history in units of 0.01 of the image (X, Y). Trails drift in that direction.",
+ "Huedrift": "Per-frame hue rotation of the history in degrees, so trails change colour as they age.",
+ "Noiseamount": "Strength of the noise displacement applied to the history lookup. 0 = clean trails, higher = wobbly, smoky trails.",
+ "Noisescale": "Spatial frequency of the displacement noise. Higher gives finer wiggles.",
+ "Noisespeed": "How fast the displacement noise evolves, in noise units per second.",
+ "Inject": "Gain of the incoming source before it is blended into the trails. 0 adds nothing new.",
+ "Active": "Off freezes the current frame; the history stops updating.",
+ "Reset": "Pulse: clear the trail history to black.",
+ "Look": "Look of the built-in test source used when in1 is unconnected. original: default colours. mono: black, bone-white and grey. A connected in1 is not recoloured.",
+ "Accent": "0-1 amount that tints one object of the built-in test source red. No effect on a connected in1."
+}

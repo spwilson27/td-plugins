@@ -1,0 +1,11 @@
+{
+ "Heightsource": "noise: internal scrolling noise. input: heightmap TOP on in2.",
+ "Style": "smooth: plain noise. ridged: sharp ridge lines. terraced: stepped plateaus (see Terraces).",
+ "Height": "Maximum displacement along the normals in world units.",
+ "Scale": "Noise feature frequency. Larger = smaller, busier features. Noise source only.",
+ "Terraces": "Number of steps when Style is terraced.",
+ "Speed": "Scroll speed of the heightmap. 0 = static.",
+ "Seed": "Random seed for the noise.",
+ "Look": "original: height-based colours. mono: greyscale colours.",
+ "Accent": "Amount (0-1) of red accent on the peaks of the Color attribute."
+}

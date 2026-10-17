@@ -1,0 +1,5 @@
+{
+ "Operation": "union: A or B. subtract: B carved out of A. intersect: only where A and B overlap. morph: interpolate from A to B using Morph.",
+ "Smooth": "Smooth-blend radius in world units. 0 = hard edge; colours blend with the shape.",
+ "Morph": "Blend amount for the morph operation: 0 = A, 1 = B."
+}

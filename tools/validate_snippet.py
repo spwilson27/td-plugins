@@ -83,13 +83,22 @@ for o in ex:
 _ns = {{}}
 exec(open(__import__('os').path.join(__import__('os').path.expanduser(__import__('os').environ.get('TD_PLUGINS_HOME', '~/software/td-plugins')), 'td_organize', 'td_runtime.py')).read(), _ns)
 _ov = _ns['check'](s)
-print(json.dumps(dict(overlaps=[str(x) for x in _ov[:6]], noverlaps=len(_ov), snippet=s.name, instances=[c.path for c in inst], examples=shots, annotations=len(ann), outside=outside, problems=errs)))
+# nodes must sit below each Annotate's title + body text (computed the same way td_organize reserves it)
+_textov = []
+for a in ann:
+    hdr = _ns['annotate_header'](a)(a.nodeWidth)
+    limit = a.nodeY + a.nodeHeight - hdr
+    for e in a.enclosedOPs:
+        if e.nodeY + e.nodeHeight > limit + 1:
+            _textov.append(a.name + ':' + e.name)
+print(json.dumps(dict(text_overlaps=_textov[:8], overlaps=[str(x) for x in _ov[:6]], noverlaps=len(_ov), snippet=s.name, instances=[c.path for c in inst], examples=shots, annotations=len(ann), outside=outside, problems=errs)))
 """)
     rep = json.loads(r["stdout"].strip().splitlines()[-1])
     conv = []
     if not rep["instances"]: conv.append("no component instance with externaltox -> tox/<FAM>/<NAME>.tox")
     if not rep["examples"]: conv.append("no exampleN Null TOP")
     if rep["annotations"] < len(rep["examples"]): conv.append("each example needs an Annotate COMP")
+    if rep.get("text_overlaps"): conv.append("nodes overlap Annotate description text: " + str(rep["text_overlaps"]))
     if rep.get("noverlaps"): conv.append("overlapping nodes (%d): %s" % (rep["noverlaps"], rep["overlaps"]))
     if rep.get("outside"): conv.append("example outputs not inside an Annotate box: " + str(rep["outside"]))
     blank = [e[0] for e in rep["examples"] if e[2] < 0.002]

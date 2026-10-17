@@ -143,6 +143,22 @@ cb.par.custom = True
 cb.par.builtin = False
 cb.nodeX, cb.nodeY = -400, -400
 
+# --- parameter help (Alt+hover / parameter help popups) -------------------------
+HELP = dict(spec.get('help') or {})
+HELP.update({
+    'Version': 'Component version (from components.json).',
+    'Description': 'What this component does.',
+    'Family': 'Input family: TOP_ image filter, POP_ geometry filter, GEN_ generator, SDF_ signed distance field, MAT_ material, UTIL_ utility.',
+    'Libraryroot': 'Folder of the td-plugins library (env TD_PLUGINS_HOME, default ~/software/td-plugins). Used by Help and Snippets.',
+    'Help': 'Open this component\'s README.',
+    'Snippets': 'Open example networks for this component in a floating network editor.',
+    'Applyto': 'Drag Geometry COMPs and/or Render TOPs here. Geometry: sets its Material; Render TOP: sets its Override Material. Removing an op clears it again.',
+})
+for p in c.customPars:
+    t = HELP.get(p.tupletName) or HELP.get(p.name)
+    if t:
+        p.help = t
+
 # --- page order -----------------------------------------------------------
 names = [pg.name for pg in c.customPages]
 head = [n for n in (('Material',) if FAM == 'MAT' else ('Controls',)) if n in names]
@@ -246,10 +262,12 @@ def main():
     lf = ROOT / 'io_labels.json'
     if lf.exists():
         labels = json.loads(lf.read_text()).get(name, {})
+    hf = ROOT / 'components' / name / 'help.json'
+    helptext = json.loads(hf.read_text()) if hf.exists() else {}
     lc = ROOT / 'components' / name / 'labels.json'
     if lc.exists():
         labels = json.loads(lc.read_text())
-    spec = dict(m, raw=raw, out=str(ROOT / 'tox' / m['family'] / f'{name}.tox'), labels=labels)
+    spec = dict(m, raw=raw, out=str(ROOT / 'tox' / m['family'] / f'{name}.tox'), labels=labels, help=helptext)
     code = f"SPEC = {json.dumps(json.dumps(spec))}\nABOUT_CB = {ABOUT_CB!r}\nAPPLY_CB = {APPLY_CB!r}\n" + TD_CODE
     conn = load_connection(tdctl.d(inst) / 'connection.json')
     r = call('execute_python', {'code': code}, connection=conn, timeout=90)

@@ -1,0 +1,21 @@
+{
+ "Play": "On: run the simulation. Off: freeze it.",
+ "Reset": "Pulse: clear velocity and pressure and re-seed the dye from in1.",
+ "Dyesource": "inject: in1 is blended in continuously at Injectrate. seed: in1 is loaded only at start or Reset and then smeared away.",
+ "Injectrate": "Inject mode: how strongly in1 is blended into the dye each frame. 0 = none.",
+ "Speed": "Time step multiplier. Higher = faster flow.",
+ "Iterations": "Jacobi pressure-solver iterations per frame. More = less divergence but slower; 8-12 is faster.",
+ "Vorticity": "Vorticity confinement: keeps small swirls alive. 0 = off.",
+ "Veldissipation": "Per-frame decay of velocity. 0 = none; higher stops motion sooner.",
+ "Dyedissipation": "Per-frame fade of the dye. 0 = never fades.",
+ "Forcein": "Strength of the in2 TOP (R,G as signed velocity) added to the flow.",
+ "Edgeforce": "How much luminance edges of in1 push the flow.",
+ "Emitters": "Number of internal free-running stir emitters. 0 = driven only by in2 and edges.",
+ "Splatsize": "Radius of each stir splat as a fraction of the image.",
+ "Force": "Strength of the stir emitters.",
+ "Emitterspeed": "How fast the stir emitters move.",
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom."
+}

@@ -1,0 +1,21 @@
+{
+ "Mix": "Blend between the input (0) and the effect (1).",
+ "Bypass": "Pass in1 through unchanged; the effect does not cook.",
+ "Resolutionmode": "input: follow in1's resolution (or the demo source when unconnected). custom: use Resolution.",
+ "Resolution": "Output size in pixels when Resolutionmode is custom.",
+ "Direction": "Direction pixels are sorted toward. right, left, up or down.",
+ "Key": "Value pixels are sorted by. luma: brightness. hue: hue. sat: saturation. red: red channel.",
+ "Thresholdlow": "Pixels darker than this (by Key) are not sorted and act as span breaks.",
+ "Thresholdhigh": "Pixels brighter than this (by Key) are not sorted and act as span breaks.",
+ "Passes": "Sort passes per frame (max 16). More = faster, longer-reaching sorting.",
+ "Sortamount": "Blend from the source (0) to the sorted image (1).",
+ "Refresh": "Per-frame pull of the sort state back toward the live source. Higher keeps moving video recognisable.",
+ "Bytebeat": "Strength of the bytebeat XOR bit-corruption bands. 0 = off.",
+ "Bandsize": "Height of the corruption bands. Larger = fewer, thicker bands.",
+ "Bandholdframes": "Number of frames each corruption band pattern persists before changing.",
+ "Shuffle": "Amount of per-block colour channel shuffling. 0 = off.",
+ "Seed": "Random seed for the channel shuffle pattern.",
+ "Active": "On: sorting runs. Off: freezes the sort state.",
+ "Reset": "Pulse: re-seed the sort state from the current source.",
+ "Modamount": "Strength of the in2 modulation CHOP (band1 adds to Bytebeat). 0 = ignore."
+}

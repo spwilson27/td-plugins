@@ -133,3 +133,27 @@ def test_bundle_exec_separate_namespaces():
     g, l = {}, {}
     exec((ROOT / "td_organize" / "td_runtime.py").read_text(), g, l)
     assert callable(g["organize"]) and callable(g["check"])
+
+
+def test_group_header_reserves_text_space():
+    from td_organize.layout import layout, text_header_height
+    nodes = [dict(id='a', w=100, h=80, x=0, y=0, docked_to=None, group='g', kind='TOP'),
+             dict(id='b', w=100, h=80, x=200, y=0, docked_to=None, group='g', kind='TOP')]
+    edges = [('a', 'b')]
+    text = 'line one\\nline two\\nline three\\nline four'
+    hdr = lambda w: text_header_height(30, 9, text, w)
+    pos, boxes = layout(nodes, edges, return_groups=True, group_titles={'g': hdr})
+    bx, by, bw, bh = boxes['g']
+    top = by + bh
+    need = hdr(bw)
+    # every node's top edge sits below the header area
+    for n in nodes:
+        x, y = pos[n['id']]
+        assert y + n['h'] <= top - need + 1e-6
+
+
+def test_text_header_wraps_long_lines():
+    from td_organize.layout import text_header_height
+    short = text_header_height(30, 9, 'x ' * 20, 1100)
+    narrow = text_header_height(30, 9, 'x ' * 200, 300)
+    assert narrow > short

@@ -1,0 +1,8 @@
+{
+  "Surface": "Lattice type. gyroid: gyroid; schwarzp: Schwarz P (cubic pores); diamond: diamond lattice.",
+  "Frequency": "Lattice cells per world unit. Higher = finer lattice.",
+  "Thickness": "Wall thickness of the lattice in field units. Higher = thicker walls.",
+  "Boundradius": "Radius of the sphere the lattice is clipped to, in world units. 0 = infinite lattice.",
+  "Color": "Albedo colour at one end of the blend across the surface.",
+  "Color2": "Albedo colour at the other end of the blend across the surface."
+}

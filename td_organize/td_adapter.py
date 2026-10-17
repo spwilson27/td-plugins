@@ -8,6 +8,7 @@ tested with fake ops.  Public API:
 """
 from .layout import layout
 from .overlap import find_overlaps, outside_groups
+from .layout import text_header_height
 
 
 def _is_annotate(o):
@@ -99,10 +100,32 @@ def _gather(comp, annotate_groups):
     return nodes, _edges(ops, paths), annotates
 
 
+def _par(o, name, default=None):
+    p = getattr(getattr(o, "par", None), name, None)
+    try:
+        return p.eval() if p is not None else default
+    except Exception:
+        return default
+
+
+def annotate_header(a):
+    """Callable width -> header height (title bar + wrapped body text) for an Annotate COMP."""
+    title_h = _par(a, "Titleheight", 30) or 30
+    font = _par(a, "Bodyfontsize", 9) or 9
+    text = _par(a, "Bodytext", "") or ""
+    wrap = bool(_par(a, "Bodywordwrap", True))
+    maxw = _par(a, "Bodymaxwidth", None) if _par(a, "Bodylimitwidth", False) else None
+    return lambda width: text_header_height(title_h, font, text, width, wrap, maxw)
+
+
+def _annotate_headers(annotates):
+    return dict((a.path, annotate_header(a)) for a in annotates)
+
+
 def _organize_one(comp, annotate_groups):
     nodes, edges, annotates = _gather(comp, annotate_groups)
     before = len(find_overlaps(nodes))
-    pos, boxes = layout(nodes, edges, return_groups=True)
+    pos, boxes = layout(nodes, edges, return_groups=True, group_titles=_annotate_headers(annotates))
     by_path = dict((c.path, c) for c in comp.children)
     ordered = sorted(nodes, key=lambda n: n["docked_to"] is not None)
     for n in ordered:
