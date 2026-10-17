@@ -127,27 +127,28 @@ def connected_phase(conn, name, secs, only_primary=False):
     r = run(conn, f"""
 import json, td
 c = op('/validate/{name}'); v = op('/validate')
-fx = v.op('fx_{name}')
-if fx: fx.destroy()
-fx = v.create(td.baseCOMP, 'fx_{name}')
+for o in v.findChildren(depth=1, name='fx_{name}_*'):
+    o.destroy()
 ins = sorted([o for o in c.children if o.OPType in ('inTOP','inPOP','inCHOP','inSOP','inDAT')], key=lambda o: o.name)
 made = []
 for i, o in enumerate(ins[:1] if {only_primary} else ins):
     t = o.OPType
     if t == 'inTOP':
-        s = fx.create(td.noiseTOP, 'top%d' % i); s.par.outputresolution = 'custom'; s.par.resolutionw = 1280; s.par.resolutionh = 720
+        s = v.create(td.noiseTOP, 'fx_{name}_top%d' % i); s.par.outputresolution = 'custom'; s.par.resolutionw = 1280; s.par.resolutionh = 720
         s.par.tz.expr = 'absTime.seconds * 0.3'; s.par.mono = False
     elif t == 'inPOP':
-        s = fx.create(td.spherePOP, 'pop%d' % i)
+        s = v.create(td.spherePOP, 'fx_{name}_pop%d' % i)
     elif t == 'inSOP':
-        s = fx.create(td.sphereSOP, 'sop%d' % i)
+        s = v.create(td.sphereSOP, 'fx_{name}_sop%d' % i)
     elif t == 'inCHOP':
-        s = fx.create(td.constantCHOP, 'chop%d' % i)
+        s = v.create(td.constantCHOP, 'fx_{name}_chop%d' % i)
         for k, ch in enumerate(('band1', 'band2', 'band3', 'band4', 'beat', 'phase')):
             getattr(s.par, 'name%d' % k).val = ch; getattr(s.par, 'value%d' % k).val = 0.5
     else:
-        s = fx.create(td.textDAT, 'dat%d' % i); s.text = {sdf!r}
-    c.inputConnectors[i].connect(s); made.append([o.name, t])
+        s = v.create(td.textDAT, 'fx_{name}_dat%d' % i); s.text = {sdf!r}
+    c.inputConnectors[i].connect(s)
+    assert c.inputConnectors[i].connections, 'test source did not connect to ' + o.name
+    made.append([o.name, t])
 print(json.dumps(made))
 """)
     made = json.loads(r["stdout"].strip().splitlines()[-1])
@@ -171,7 +172,8 @@ for o in [c] + c.findChildren():
         if s: errs.append([kind, o.path, s[:300]])
 for i in range(len(c.inputConnectors)):
     c.inputConnectors[i].disconnect()
-op('/validate/fx_{name}').destroy()
+for o in op('/validate').findChildren(depth=1, name='fx_{name}_*'):
+    o.destroy()
 print(json.dumps(errs))
 """)
     errs = json.loads(r["stdout"].strip().splitlines()[-1])

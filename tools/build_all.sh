@@ -3,7 +3,7 @@
 cd "$(dirname "$0")/.."; inst=$1
 PY=${TD_MCP_HOME:-$HOME/software/td-mcp}/.venv/bin/python
 $PY tools/tdctl.py start $inst >/dev/null
-names=$(python3 -c "import json; n=[m['name'] for m in json.load(open('components.json'))]; n.sort(key=lambda x: x!='GEN_fluid_2d'); print(' '.join(n))")
+names=$(python3 tools/list_components.py)
 pass=0; fail=0
 for n in $names; do
   out=$(tools/build.sh $inst $n 2>&1)

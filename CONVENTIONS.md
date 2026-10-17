@@ -85,3 +85,6 @@ Machine-checked by `tools/validate.py` (component) and `tools/validate_snippet.p
 
 ## SDF section
 (Owned by the SDF_ family; documented by its author.) The SDF wire format, how parameters reach the shader without recompiling, `tools/fixtures/SDF_input.txt` (what validation feeds an SDF input), and how `SDF_render` / converters consume it.
+- **Switch gating must re-evaluate:** an index expression like `len(parent().inputConnectors[0].connections)` is not re-evaluated when a wire is plugged in later. Use `len(parent().inputConnectors[0].connections) + 0*absTime.frame` (validation connects inputs seconds after load and fails if `demo` keeps cooking).
+- **Names starting with `out`** are turned into outputs by `conform.py`; don't name internal ops `out*`.
+- **Validation test sources must be siblings** of the component: TouchDesigner silently refuses to wire a component input from inside another COMP.
