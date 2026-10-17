@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "td-plugins"
+version = "0.2.0"
+description = "Reusable TouchDesigner VJ components, plus td_organize (no-overlap network layout)"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+td-organize = "td_organize.cli:main"
+
+[tool.setuptools]
+packages = ["td_organize"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

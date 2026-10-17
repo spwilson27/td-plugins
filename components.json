@@ -1,0 +1,408 @@
+[
+ {
+  "old": "glitch",
+  "name": "TOP_glitch",
+  "family": "TOP",
+  "description": "RGB split, block shift, scanline tears, streaks, compression hold",
+  "version": "1.0.0"
+ },
+ {
+  "old": "vhs_crt",
+  "name": "TOP_vhs_crt",
+  "family": "TOP",
+  "description": "VHS/CRT emulation: wobble, chroma bleed, tracking noise, mask, curvature",
+  "version": "1.0.0"
+ },
+ {
+  "old": "feedback_trails",
+  "name": "TOP_feedback_trails",
+  "family": "TOP",
+  "description": "Feedback trails with transform, hue drift and displacement",
+  "version": "1.0.0"
+ },
+ {
+  "old": "filmic_look",
+  "name": "TOP_filmic_look",
+  "family": "TOP",
+  "description": "Bloom, glare, chromatic aberration, ACES tonemap, grain, vignette",
+  "version": "1.0.0"
+ },
+ {
+  "old": "stylize_halftone",
+  "name": "TOP_halftone",
+  "family": "TOP",
+  "description": "Halftone (CMYK/mono), Bayer/error-diffusion dither and ASCII",
+  "version": "1.0.0"
+ },
+ {
+  "old": "toon_outline",
+  "name": "TOP_toon_outline",
+  "family": "TOP",
+  "description": "Posterize with ink or neon edge lines",
+  "version": "1.0.0"
+ },
+ {
+  "old": "slit_scan",
+  "name": "TOP_slit_scan",
+  "family": "TOP",
+  "description": "Slit-scan time displacement from a frame ring buffer",
+  "version": "1.0.0"
+ },
+ {
+  "old": "optical_flow_fx",
+  "name": "TOP_optical_flow",
+  "family": "TOP",
+  "description": "GPU optical flow driving smear, warp or flow visualization",
+  "version": "1.0.0"
+ },
+ {
+  "old": "kaleidoscope",
+  "name": "TOP_kaleidoscope",
+  "family": "TOP",
+  "description": "Radial, tiled and hyperbolic kaleidoscope",
+  "version": "1.0.0"
+ },
+ {
+  "old": "droste_zoom",
+  "name": "TOP_droste_zoom",
+  "family": "TOP",
+  "description": "Log-polar Droste infinite zoom",
+  "version": "1.0.0"
+ },
+ {
+  "old": "dof_motionblur",
+  "name": "TOP_dof_motionblur",
+  "family": "TOP",
+  "description": "Depth of field (depth/luma/radial) and motion blur",
+  "version": "1.0.0"
+ },
+ {
+  "old": "false_color",
+  "name": "TOP_false_color",
+  "family": "TOP",
+  "description": "Thermal / x-ray / night-vision false colour with HUD",
+  "version": "1.0.0"
+ },
+ {
+  "old": "pixel_sort_pro",
+  "name": "TOP_pixel_sort",
+  "family": "TOP",
+  "description": "True GPU pixel sort, bytebeat bands, channel shuffle",
+  "version": "1.0.0"
+ },
+ {
+  "old": "pixel_stretch",
+  "name": "TOP_pixel_stretch",
+  "family": "TOP",
+  "description": "Directional pixel-drag smear from a luminance threshold",
+  "version": "1.0.0"
+ },
+ {
+  "old": "glass_refraction",
+  "name": "TOP_glass_refraction",
+  "family": "TOP",
+  "description": "Moving glass shape refracting the input with dispersion",
+  "version": "1.0.0"
+ },
+ {
+  "old": "tracker_hud",
+  "name": "TOP_tracker_hud",
+  "family": "TOP",
+  "description": "Tracking HUD: feature boxes, ID/coordinate labels, links, grid",
+  "version": "1.0.0"
+ },
+ {
+  "old": "type_overlay",
+  "name": "TOP_type_overlay",
+  "family": "TOP",
+  "description": "Monospace title card, telemetry read-outs and crop marks",
+  "version": "1.0.0"
+ },
+ {
+  "old": "instance_grid",
+  "name": "TOP_instance_grid",
+  "family": "TOP",
+  "description": "Image to a 3D field of instanced boxes, spheres or cones",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mesh_deformer",
+  "name": "POP_mesh_deformer",
+  "family": "POP",
+  "description": "Twist, bend, inflate, noise and ripple deformer stack",
+  "version": "1.0.0"
+ },
+ {
+  "old": "plexus_points",
+  "name": "POP_plexus_points",
+  "family": "POP",
+  "description": "Scan-strata point cloud with plexus lines and grid",
+  "version": "1.0.0"
+ },
+ {
+  "old": "pointcloud_dissolve",
+  "name": "POP_pointcloud_dissolve",
+  "family": "POP",
+  "description": "Mesh to points that erode into curl-noise dust and re-form",
+  "version": "1.0.0"
+ },
+ {
+  "old": "gpu_particles",
+  "name": "GEN_gpu_particles",
+  "family": "GEN",
+  "description": "GPU particles: emitter, curl noise, gravity, attractors",
+  "version": "1.0.0"
+ },
+ {
+  "old": "reaction_diffusion",
+  "name": "GEN_reaction_diffusion",
+  "family": "GEN",
+  "description": "Gray-Scott reaction-diffusion with presets",
+  "version": "1.0.0"
+ },
+ {
+  "old": "fluid_2d",
+  "name": "GEN_fluid_2d",
+  "family": "GEN",
+  "description": "2D stable fluids with vorticity and emitters",
+  "version": "1.0.0"
+ },
+ {
+  "old": "boids",
+  "name": "GEN_boids",
+  "family": "GEN",
+  "description": "GPU flocking rendered as instanced cones",
+  "version": "1.0.0"
+ },
+ {
+  "old": "physarum",
+  "name": "GEN_physarum",
+  "family": "GEN",
+  "description": "Physarum slime-mold agents and trail map",
+  "version": "1.0.0"
+ },
+ {
+  "old": "cellular_automata",
+  "name": "GEN_cellular_automata",
+  "family": "GEN",
+  "description": "Life-like and other cellular automata rules",
+  "version": "1.0.0"
+ },
+ {
+  "old": "verlet_cloth",
+  "name": "GEN_verlet_cloth",
+  "family": "GEN",
+  "description": "Verlet cloth with pinning, wind and sphere collider",
+  "version": "1.0.0"
+ },
+ {
+  "old": "strange_attractors",
+  "name": "GEN_strange_attractors",
+  "family": "GEN",
+  "description": "Strange attractor particle clouds with morph and trails",
+  "version": "1.0.0"
+ },
+ {
+  "old": "sdf_raymarch",
+  "name": "GEN_sdf_raymarch",
+  "family": "GEN",
+  "description": "Raymarched SDF scene with smooth unions, shadows, AO",
+  "version": "1.0.0"
+ },
+ {
+  "old": "lsystem",
+  "name": "GEN_lsystem",
+  "family": "GEN",
+  "description": "L-system branching growth with presets",
+  "version": "1.0.0"
+ },
+ {
+  "old": "voronoi",
+  "name": "GEN_voronoi",
+  "family": "GEN",
+  "description": "Animated Voronoi cells, edge glow, cracked/stained glass",
+  "version": "1.0.0"
+ },
+ {
+  "old": "flow_field_lines",
+  "name": "GEN_flow_field_lines",
+  "family": "GEN",
+  "description": "Long-exposure strokes along a flow field",
+  "version": "1.0.0"
+ },
+ {
+  "old": "fractal_zoom",
+  "name": "GEN_fractal_zoom",
+  "family": "GEN",
+  "description": "Mandelbulb / Menger fractal dive, seamless loop",
+  "version": "1.0.0"
+ },
+ {
+  "old": "infinite_tunnel",
+  "name": "GEN_infinite_tunnel",
+  "family": "GEN",
+  "description": "Raymarched infinite corridor",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mirror_room",
+  "name": "GEN_mirror_room",
+  "family": "GEN",
+  "description": "Kaleidoscopic mirror box with chrome object",
+  "version": "1.0.0"
+ },
+ {
+  "old": "terrain_flyover",
+  "name": "GEN_terrain_flyover",
+  "family": "GEN",
+  "description": "Retro wireframe/solid terrain flyover",
+  "version": "1.0.0"
+ },
+ {
+  "old": "tentacles",
+  "name": "GEN_tentacles",
+  "family": "GEN",
+  "description": "Writhing tube splines",
+  "version": "1.0.0"
+ },
+ {
+  "old": "video_synth",
+  "name": "GEN_video_synth",
+  "family": "GEN",
+  "description": "LZX/Hydra-style oscillator patches",
+  "version": "1.0.0"
+ },
+ {
+  "old": "kinetic_type",
+  "name": "GEN_kinetic_type",
+  "family": "GEN",
+  "description": "Per-glyph 3D kinetic typography",
+  "version": "1.0.0"
+ },
+ {
+  "old": "glyph_tunnel",
+  "name": "GEN_glyph_tunnel",
+  "family": "GEN",
+  "description": "Character tunnel, wall or rain",
+  "version": "1.0.0"
+ },
+ {
+  "old": "text_fluid",
+  "name": "GEN_text_fluid",
+  "family": "GEN",
+  "description": "Text injected into a fluid sim, smearing and re-forming",
+  "version": "1.0.0"
+ },
+ {
+  "old": "liquid_chrome",
+  "name": "GEN_liquid_chrome",
+  "family": "GEN",
+  "description": "Raymarched morphing liquid-chrome blob",
+  "version": "1.0.0"
+ },
+ {
+  "old": "iridescent_material",
+  "name": "MAT_iridescent",
+  "family": "MAT",
+  "description": "Thin-film iridescence, fresnel rainbow, anisotropic sheen",
+  "version": "1.0.0"
+ },
+ {
+  "old": "jelly_material",
+  "name": "MAT_jelly",
+  "family": "MAT",
+  "description": "Gummy fake-subsurface material with rim glow",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_wet_black",
+  "name": "MAT_wet_black",
+  "family": "MAT",
+  "description": "Wet black oil/tar clearcoat with drips",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_brushed_metal",
+  "name": "MAT_brushed_metal",
+  "family": "MAT",
+  "description": "Anisotropic brushed and anodized metal",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_crystal",
+  "name": "MAT_crystal",
+  "family": "MAT",
+  "description": "Faceted crystal refraction with dispersion",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_ferrofluid",
+  "name": "MAT_ferrofluid",
+  "family": "MAT",
+  "description": "Ferrofluid spikes pulled by an attractor",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_porcelain",
+  "name": "MAT_porcelain",
+  "family": "MAT",
+  "description": "Porcelain, marble or bone with veins and cracks",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_velvet",
+  "name": "MAT_velvet",
+  "family": "MAT",
+  "description": "Velvet sheen or shell fur",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_molten",
+  "name": "MAT_molten",
+  "family": "MAT",
+  "description": "Emissive molten cracks in cooling crust",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_decay",
+  "name": "MAT_decay",
+  "family": "MAT",
+  "description": "Rust and corrosion weathering",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_hologram_scan",
+  "name": "MAT_hologram_scan",
+  "family": "MAT",
+  "description": "Hologram wire lattice with scan sweep and dropout",
+  "version": "1.0.0"
+ },
+ {
+  "old": "matcap_library",
+  "name": "MAT_matcap",
+  "family": "MAT",
+  "description": "Procedural matcap library with switcher",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_triplanar",
+  "name": "MAT_triplanar",
+  "family": "MAT",
+  "description": "UV-less triplanar procedural texturing",
+  "version": "1.0.0"
+ },
+ {
+  "old": "mat_screen_stylize",
+  "name": "MAT_screen_stylize",
+  "family": "MAT",
+  "description": "Per-object dither, halftone or ASCII shading",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "UTIL_auto_arrange",
+  "family": "UTIL",
+  "description": "Arrange a network: left-to-right flow, no overlapping nodes (td_organize)",
+  "version": "1.0.0"
+ }
+]

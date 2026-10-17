@@ -1,0 +1,5 @@
+{
+  "name": "td-plugins",
+  "description": "TouchDesigner component library tooling: td-organize skill to lay out networks with no overlapping nodes and left-to-right data flow.",
+  "version": "0.2.0"
+}

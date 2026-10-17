@@ -1,0 +1,506 @@
+{
+ "TOP_glitch": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_vhs_crt": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_feedback_trails": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_filmic_look": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_halftone": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_toon_outline": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result",
+   "out2": "edges"
+  }
+ },
+ "TOP_slit_scan": {
+  "inputs": {
+   "in1": "image",
+   "in2": "time map",
+   "in3": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_optical_flow": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result",
+   "out2": "flow"
+  }
+ },
+ "TOP_kaleidoscope": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_droste_zoom": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_dof_motionblur": {
+  "inputs": {
+   "in1": "colour",
+   "in2": "depth map",
+   "in3": "velocity map",
+   "in4": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result",
+   "out2": "depth map"
+  }
+ },
+ "TOP_false_color": {
+  "inputs": {
+   "in1": "image",
+   "in2": "depth/driver map",
+   "in3": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_pixel_sort": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_pixel_stretch": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_glass_refraction": {
+  "inputs": {
+   "in1": "background image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_tracker_hud": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_type_overlay": {
+  "inputs": {
+   "in1": "background image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "TOP_instance_grid": {
+  "inputs": {
+   "in1": "image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "result"
+  }
+ },
+ "POP_mesh_deformer": {
+  "inputs": {
+   "in1": "geometry (POP)",
+   "in2": "env map (equirect)",
+   "in3": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "deformed mesh (POP)"
+  }
+ },
+ "POP_plexus_points": {
+  "inputs": {
+   "in1": "geometry (POP)",
+   "in2": "luma image"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "plexus lines (POP)"
+  }
+ },
+ "POP_pointcloud_dissolve": {
+  "inputs": {
+   "in1": "mesh (POP)",
+   "in2": "depth/luma image"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "points (POP)"
+  }
+ },
+ "GEN_gpu_particles": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "particles (texture)",
+   "out3": "particles (POP)"
+  }
+ },
+ "GEN_reaction_diffusion": {
+  "inputs": {
+   "in1": "seed mask",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "state"
+  }
+ },
+ "GEN_fluid_2d": {
+  "inputs": {
+   "in1": "dye/force image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "dye",
+   "out2": "velocity"
+  }
+ },
+ "GEN_boids": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "boid points (POP)",
+   "out2": "boid cones (POP)"
+  }
+ },
+ "GEN_physarum": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "trail"
+  }
+ },
+ "GEN_cellular_automata": {
+  "inputs": {
+   "in1": "seed image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "state"
+  }
+ },
+ "GEN_verlet_cloth": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "positions"
+  }
+ },
+ "GEN_strange_attractors": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "particles"
+  }
+ },
+ "GEN_sdf_raymarch": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_lsystem": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_voronoi": {
+  "inputs": {
+   "in1": "colour image",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_flow_field_lines": {
+  "inputs": {
+   "in1": "flow steering image"
+  },
+  "outputs": {
+   "out1": "lines"
+  }
+ },
+ "GEN_fractal_zoom": {
+  "inputs": {},
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_infinite_tunnel": {
+  "inputs": {},
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_mirror_room": {
+  "inputs": {},
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_terrain_flyover": {
+  "inputs": {
+   "in1": "heightmap"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "terrain (POP)"
+  }
+ },
+ "GEN_tentacles": {
+  "inputs": {
+   "in1": "env map (equirect)"
+  },
+  "outputs": {
+   "out1": "render",
+   "out2": "tentacles (POP)"
+  }
+ },
+ "GEN_video_synth": {
+  "inputs": {
+   "in1": "displacement image"
+  },
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_kinetic_type": {
+  "inputs": {},
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_glyph_tunnel": {
+  "inputs": {},
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_text_fluid": {
+  "inputs": {},
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "GEN_liquid_chrome": {
+  "inputs": {
+   "in1": "env map (equirect)"
+  },
+  "outputs": {
+   "out1": "render"
+  }
+ },
+ "MAT_iridescent": {
+  "inputs": {
+   "in1": "env map (equirect)"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_jelly": {
+  "inputs": {},
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_wet_black": {
+  "inputs": {
+   "in1": "env map (equirect)",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_brushed_metal": {
+  "inputs": {
+   "in1": "env map (equirect)",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_crystal": {
+  "inputs": {
+   "in1": "env map (equirect)",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_ferrofluid": {
+  "inputs": {
+   "in1": "env map (equirect)",
+   "in2": "field modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_porcelain": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_velvet": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_molten": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_decay": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_hologram_scan": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_matcap": {
+  "inputs": {
+   "in1": "custom matcap",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material",
+   "out2": "matcap",
+   "out3": "matcap atlas"
+  }
+ },
+ "MAT_triplanar": {
+  "inputs": {
+   "in1": "texture",
+   "in2": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material"
+  }
+ },
+ "MAT_screen_stylize": {
+  "inputs": {
+   "in1": "modulation CHOP"
+  },
+  "outputs": {
+   "out1": "material",
+   "out2": "glyph atlas"
+  }
+ },
+ "UTIL_auto_arrange": {
+  "inputs": {},
+  "outputs": {
+   "out1": "arrange report"
+  }
+ }
+}

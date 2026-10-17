@@ -1,0 +1,335 @@
+# ---- shared helpers (pasted at top of each build.py by components/_lib/mk.sh) ----
+import os, td
+ROOT = os.path.expanduser('~/software/td-plugins')
+
+def rd(comp, fn):
+    return open(os.path.join(ROOT, 'components', comp, fn)).read()
+
+def new_comp(name):
+    b = op('/build') or op('/').create(td.baseCOMP, 'build')
+    old = b.op(name)
+    if old: old.destroy()
+    return b.create(td.baseCOMP, name)
+
+def mkdat(c, name, s):
+    d = c.create(td.textDAT, name); d.text = s; return d
+
+def setres(o, w="op('res')['w']", h="op('res')['h']"):
+    o.par.outputresolution = 'custom'
+    o.par.resolutionw.expr = w; o.par.resolutionh.expr = h
+
+def glsl(c, name, code, inputs=(), vecs=(), fmt='rgba16float', res=False, filt=None):
+    """vecs: list of (uniformName, [4 values/exprs]) ; exprs are strings evaluated in TD."""
+    g = c.create(td.glslTOP, name)
+    g.par.pixeldat = mkdat(c, name + '_code', code)
+    for i, s in enumerate(inputs[:3]):
+        g.inputConnectors[i].connect(s)
+    if len(inputs) > 3:   # inputs beyond the 3 wire connectors go through the TOPs parameter (index 3..)
+        g.par.tops = ' '.join(s.name for s in inputs[3:])
+    if vecs:
+        g.seq.vec.numBlocks = len(vecs)
+    for i, (n, vals) in enumerate(vecs):
+        g.par['vec%dname' % i] = n
+        for j, v in enumerate(vals):
+            p = g.par['vec%dvalue%s' % (i, 'xyzw'[j])]
+            if isinstance(v, str): p.expr = v
+            else: p.val = v
+    g.par.format = fmt
+    if res: setres(g)
+    if filt: g.par.filtertype = filt
+    return g
+
+def add_pars(c, specs, page='Controls'):
+    """spec tuples: (name, kind, ...)
+      ('Amount','float',default,min,max)   ('Count','int',def,min,max)  ('On','toggle',def)
+      ('Reset','pulse')  ('Mode','menu',[(id,label),..],default_index)  ('Res','wh',(w,h))
+      ('Col','rgb',(r,g,b))  ('Txt','str',default)  ('Xy','xy',(x,y))"""
+    pg = c.appendCustomPage(page)
+    for s in specs:
+        n, k = s[0], s[1]
+        if k == 'float':
+            p = pg.appendFloat(n)[0]; p.default = s[2]; p.val = s[2]
+            p.min = s[3]; p.max = s[4]; p.normMin = s[3]; p.normMax = s[4]
+            if len(s) > 5 and s[5]: p.clampMin = p.clampMax = True
+        elif k == 'int':
+            p = pg.appendInt(n)[0]; p.default = s[2]; p.val = s[2]
+            p.min = s[3]; p.max = s[4]; p.normMin = s[3]; p.normMax = s[4]; p.clampMin = p.clampMax = True
+        elif k == 'toggle':
+            p = pg.appendToggle(n)[0]; p.default = s[2]; p.val = s[2]
+        elif k == 'pulse':
+            pg.appendPulse(n)
+        elif k == 'menu':
+            p = pg.appendMenu(n)[0]
+            p.menuNames = [m[0] for m in s[2]]; p.menuLabels = [m[1] for m in s[2]]
+            p.default = s[2][s[3]][0]; p.val = s[2][s[3]][0]
+        elif k == 'wh':
+            ps = pg.appendWH(n)
+            for q, v in zip(ps, s[2]):
+                q.default = v; q.val = v; q.min = 16; q.max = 8192; q.normMin = 16; q.normMax = 4096
+        elif k == 'xy':
+            ps = pg.appendXY(n)
+            for q, v in zip(ps, s[2]):
+                q.default = v; q.val = v; q.normMin = -1; q.normMax = 1
+        elif k == 'rgb':
+            ps = pg.appendRGB(n)
+            for q, v in zip(ps, s[2]):
+                q.default = v; q.val = v; q.min = 0; q.max = 1; q.normMin = 0; q.normMax = 1
+        elif k == 'str':
+            p = pg.appendStr(n)[0]; p.default = s[2]; p.val = s[2]
+    return pg
+
+def input_stage(c, comp, bg=1.0):
+    """in1 + animated default source -> switch 'src' (resolution = Resolution par). Returns src TOP."""
+    i = c.create(td.inTOP, 'in1')
+    d = glsl(c, 'defsrc', rd(comp, 'src.glsl'), vecs=[('uTime', ['absTime.seconds', 0, 0, 0]), ('uBg', [bg, 0, 0, 0])], res=True)
+    sw = c.create(td.switchTOP, 'src')
+    sw.inputConnectors[0].connect(d); sw.inputConnectors[1].connect(i)
+    sw.par.index.expr = "1 if parent().inputConnectors[0].connections else 0"
+    setres(sw)
+    sw.par.format = 'rgba16float'
+    return sw
+
+def finish_old(c, name):
+    c.layout()
+    p = os.path.join(ROOT, 'tox', '_raw', name + '.tox')
+    c.save(p)
+    print('saved', p)
+
+def report(c):
+    for o in [c] + c.findChildren():
+        for k, s in (('err', o.errors()), ('warn', o.warnings()), ('script', o.scriptErrors())):
+            if s: print(k, o.path, s[:300])
+
+# ======================= v2 additions (td-plugins CONVENTIONS v2) =======================
+P_ = 'parent().par.'
+# Standard Controls entries every TOP_ effect has. Append `*COMMON` to your Controls spec list
+# (do NOT add your own Resolution / Mix / Bypass).
+COMMON = [
+    ('Mix', 'float', 1.0, 0, 1, True),
+    ('Bypass', 'toggle', 0),
+    ('Resolutionmode', 'menu', [('input', 'Follow Input'), ('custom', 'Custom')], 0),
+    ('Resolution', 'wh', (1280, 720)),
+]
+
+# --- loop / clock ---
+LENEXPR = "max(0.25,(parent().par.Loopseconds if parent().par.Loopseconds>0 else parent().par.Loopbeats*60.0/max(1.0,parent().par.Bpm)))"
+EXTPH = "op('ph_ext')['phase']"            # phase from Clock CHOP (or Phase par if no Clock set)
+PEXPR = "((%s if parent().par.Timesource=='phase' else absTime.seconds/%s) %% 1.0)" % (EXTPH, LENEXPR)
+FREXPR = "max(2,2*round(%s*15))" % LENEXPR
+def uP(extra=0):
+    return ('uP', [PEXPR, LENEXPR, FREXPR, extra])
+
+def loop_pars(c, beats=8, seconds=0):
+    """Loop page: Timesource, Phase, Clock (CHOP par), Loopbeats, Bpm, Loopseconds (0 = use beats)."""
+    pg = add_pars(c, [
+        ('Timesource', 'menu', [('abstime', 'Abs Time'), ('phase', 'Phase')], 0),
+        ('Phase', 'float', 0, 0, 1),
+        ('Loopbeats', 'float', beats, 1, 64),
+        ('Bpm', 'float', 120, 30, 300),
+        ('Loopseconds', 'float', seconds, 0, 120),
+    ], page='Loop')
+    pg.appendCHOP('Clock', label='Clock CHOP (reads its phase channel)')
+    k = c.create(td.constantCHOP, 'ph_ext'); k.par.name0 = 'phase'
+    k.par.value0.expr = ("(parent().par.Clock.eval()['phase'].eval() if (parent().par.Clock.eval() and "
+                         "parent().par.Clock.eval()['phase'] is not None) else parent().par.Phase)")
+    return pg
+
+# --- resolution: Resolutionmode 'input' follows in1 (or Resolutionw/h when unconnected), 'custom' uses Resolutionw/h ---
+def res_chop(c):
+    k = c.create(td.constantCHOP, 'res')
+    conn = "parent().par.Resolutionmode=='input' and parent().inputConnectors[0].connections and op('in1').width>0"
+    k.par.name0 = 'w'; k.par.value0.expr = "(op('in1').width if (%s) else parent().par.Resolutionw)" % conn
+    k.par.name1 = 'h'; k.par.value1.expr = "(op('in1').height if (%s) else parent().par.Resolutionh)" % conn
+    return k
+
+def v2_input(c, comp=None, srcfile='src.glsl', extra_vecs=()):
+    """in1 (In TOP) + animated default source -> Switch 'src' sized by 'res'. comp=None uses the shared signal source."""
+    res_chop(c)
+    i = c.create(td.inTOP, 'in1')
+    code = (rd(comp, srcfile) if comp else open(os.path.join(ROOT, 'components/_lib/signal_src.glsl')).read())
+    d = glsl(c, 'defsrc', code, vecs=[uP()] + list(extra_vecs), res=True)
+    sw = c.create(td.switchTOP, 'src')
+    sw.inputConnectors[0].connect(d); sw.inputConnectors[1].connect(i)
+    sw.par.index.expr = "1 if parent().inputConnectors[0].connections else 0"
+    setres(sw); sw.par.format = 'rgba16float'
+    return sw
+
+# --- optional modulation In CHOP (must be the LAST input). channels band1-4, beat, phase ---
+def add_mod(c, name):
+    """name e.g. 'in3'. Creates In CHOP + Null 'modin'. Use MOD('band1') in expressions."""
+    i = c.create(td.inCHOP, name); n = c.create(td.nullCHOP, 'modin'); n.inputConnectors[0].connect(i)
+    return n
+def MOD(ch, default=0):
+    return "(op('modin')['%s'].eval() if (op('modin') and op('modin').numChans and op('modin')['%s'] is not None) else %s)" % (ch, ch, default)
+
+# --- tail: Mix (dry/wet vs src), Bypass, out1 ---
+def finish_v2(c, name, result, src, label='result', extra_outs=()):
+    """result = effect TOP, src = dry input switch. Adds Mix cross, Bypass switch, out1 (+ extra_outs=[(top,'label'),..] as out2..)."""
+    mx = c.create(td.crossTOP, 'mixer')
+    mx.inputConnectors[0].connect(src); mx.inputConnectors[1].connect(result)
+    mx.par.cross.expr = 'parent().par.Mix'
+    setres(mx); mx.par.format = 'rgba16float'
+    bp = c.create(td.switchTOP, 'bypass')
+    bp.inputConnectors[0].connect(mx); bp.inputConnectors[1].connect(src)
+    bp.par.index.expr = 'parent().par.Bypass'
+    setres(bp); bp.par.format = 'rgba16float'
+    o = c.create(td.outTOP, 'out1'); o.inputConnectors[0].connect(bp); o.comment = label
+    for k, (t, lab) in enumerate(extra_outs):
+        n = c.create(td.nullTOP, 'out%d' % (k + 2)); n.inputConnectors[0].connect(t); n.comment = lab
+    c.layout()
+    p = os.path.join(ROOT, 'tox', '_raw', name + '.tox')
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    c.save(p)
+    print('saved', p)
+# ======================= end v2 additions =======================
+
+COMP = 'TOP_instance_grid'
+P = "parent().par."
+c = new_comp(COMP)
+add_pars(c, [
+  ('Shape','menu',[('0','Box'),('1','Sphere'),('2','Cone')],0),
+  ('Countx','int',40,2,256),
+  ('County','int',24,2,256),
+  ('Spacing','float',0.5,0.05,3),
+  ('Basesize','float',0.42,0.02,3),
+  ('Heightbase','float',0.1,0,4),
+  ('Heightamt','float',3.0,0,20),
+  ('Scaleamt','float',0.0,0,1),
+  ('Rotamt','float',0.0,-4,4),
+  ('Invert','toggle',0),
+  ('Colormix','float',1.0,0,1),
+  ('Noisespeed','float',0.15,0,2),
+  ('Bgcolor','rgb',(0.03,0.03,0.05)),
+  ('Modamount','float',0.5,0,2),
+  *COMMON,
+])
+add_pars(c, [
+  ('Orbitspeed','float',0.1,-2,2),
+  ('Orbitangle','float',0.5,-6.28,6.28),
+  ('Distance','float',32,3,120),
+  ('Elevation','float',20,-20,80),
+  ('Fov','float',45,15,100),
+], page='Camera')
+add_pars(c, [
+  ('Lightangle','float',0.8,-6.28,6.28),
+  ('Lightheight','float',20,2,100),
+  ('Lightintensity','float',1.1,0,4),
+  ('Ambient','float',0.35,0,1),
+  ('Shadows','toggle',1),
+], page='Light')
+add_pars(c, [
+  ('Look','menu',[('original','Original'),('mono','Mono')],0),
+  ('Accent','float',0.0,0,1),
+], page='Look')
+loop_pars(c, beats=0, seconds=8)
+LOOKI = P + "Look.menuIndex"
+ISPH = "(1 if %sTimesource=='phase' else 0)" % P
+def ORBIT(sp='Orbitspeed', off='Orbitangle'):
+    S = P+sp; O = P+off
+    return "(%s + 6.283185307*%s*(0 if abs(%s)<1e-4 else (1 if %s>0 else -1)*max(1,round(abs(%s)*%s/6.283185))) if %sTimesource=='phase' else absTime.seconds*%s+%s)" % (O, EXTPH, S, S, S, LENEXPR, P, S, O)
+res_chop(c)
+i1 = c.create(td.inTOP, 'in1')
+def setu(g, items):
+    for i, (nm, vs) in enumerate(items):
+        getattr(g.par, 'vec%dname' % i).val = nm
+        for ax, v in zip('xyzw', vs):
+            p = getattr(g.par, 'vec%dvalue%s' % (i, ax))
+            if isinstance(v, str): p.expr = v
+            else: p.val = v
+add_mod(c, 'in2')
+nz = c.create(td.noiseTOP, 'default_noise')
+nz.par.outputresolution='custom'; nz.par.resolutionw=512; nz.par.resolutionh=512
+nz.par.mono = False; nz.par.period = 1.6; nz.par.amp = 0.55; nz.par.offset = 0.5; nz.par.harmon = 2
+nz.par.tz.expr = "absTime.seconds*"+P+"Noisespeed*3"
+# phase-periodic variant: 4D noise sampled on a circle in (tz, t4d)
+nz4 = c.create(td.noiseTOP, 'default_noise_loop')
+nz4.par.outputresolution='custom'; nz4.par.resolutionw=512; nz4.par.resolutionh=512
+nz4.par.type='perlin4d'
+nz4.par.mono = False; nz4.par.period = 1.6; nz4.par.amp = 0.55; nz4.par.offset = 0.5; nz4.par.harmon = 2
+RAD = "max(0.2,%sNoisespeed*3*%s/6.283185)" % (P, LENEXPR)
+nz4.par.tz.expr = RAD+"*math.cos(6.283185307*%s)" % PEXPR
+nz4.par.t4d.expr = RAD+"*math.sin(6.283185307*%s)" % PEXPR
+nsw = c.create(td.switchTOP, 'noise_mode'); nsw.inputConnectors[0].connect(nz); nsw.inputConnectors[1].connect(nz4)
+nsw.par.index.expr = ISPH
+sw = c.create(td.switchTOP, 'src_switch')
+sw.inputConnectors[0].connect(nsw); sw.inputConnectors[1].connect(i1)
+sw.par.index.expr = "1 if parent().inputConnectors[0].connections else 0"
+rs = c.create(td.resolutionTOP, 'to_grid')
+rs.par.outputresolution='custom'; rs.par.resolutionw.expr=P+"Countx"; rs.par.resolutionh.expr=P+"County"
+rs.par.filtertype = 'linear' if 'linear' in rs.par.filtertype.menuNames else rs.par.filtertype.val
+rs.inputConnectors[0].connect(sw)
+
+code = rd(COMP,'inst.glsl')
+d = mkdat(c, 'inst_code', code)
+dat = {}
+for i, nm in enumerate(['inst_t','inst_r','inst_s','inst_c']):
+    g = c.create(td.glslTOP, nm)
+    g.par.pixeldat = d
+    g.par.outputresolution='custom'; g.par.resolutionw.expr=P+"Countx"; g.par.resolutionh.expr=P+"County"
+    g.par.format = 'rgba32float'
+    g.par.inputfiltertype = 'nearest' if 'nearest' in g.par.inputfiltertype.menuNames else g.par.inputfiltertype.val
+    g.inputConnectors[0].connect(rs)
+    setu(g, [('uA',[P+"Countx",P+"County",P+"Spacing",i]),
+            ('uB',[P+"Heightamt"+"*(1+"+P+"Modamount*"+MOD('band1')+")",P+"Scaleamt",P+"Rotamt",P+"Basesize"]),
+            ('uC',[P+"Invert",P+"Colormix",P+"Heightbase",0]),
+            ('uD',[LOOKI,P+"Accent",0,0])])
+    dat[nm]=g
+
+# geometry
+geo = c.create(td.geometryCOMP, 'geo')
+for o in list(geo.children): o.destroy()
+bx = geo.create(td.boxSOP,'box1'); sp = geo.create(td.sphereSOP,'sphere1'); cn = geo.create(td.tubeSOP,'cone1')
+cn.par.type='poly'; cn.par.rad1=0.5; cn.par.rad2=0; cn.par.height=1; cn.par.cols=24; cn.par.rows=1; cn.par.cap=True; cn.par.orient='y' if 'y' in cn.par.orient.menuNames else cn.par.orient.val
+sp.par.type='poly'; sp.par.radx=0.5; sp.par.rady=0.5; sp.par.radz=0.5; sp.par.rows=16; sp.par.cols=24
+sw3 = geo.create(td.switchSOP,'shape_switch')
+for k,o in enumerate((bx,sp,cn)): sw3.inputConnectors[0 if k==0 else 0].connect(o) if False else None
+# switchSOP inputs are a growing list
+sw3.inputConnectors[0].connect(bx)
+sw3.inputConnectors[1].connect(sp)
+sw3.inputConnectors[2].connect(cn)
+sw3.par.input.expr = "parent(2).par.Shape.menuIndex"
+sw3.display = True; sw3.render = True
+SZ = [('box1',bx),('sphere1',sp),('cone1',cn)]
+mat = c.create(td.phongMAT,'mat')
+mat.par.diffr=1; mat.par.diffg=1; mat.par.diffb=1
+mat.par.ambr=1; mat.par.ambg=1; mat.par.ambb=1
+mat.par.specr=0.3; mat.par.specg=0.3; mat.par.specb=0.3
+geo.par.material = mat
+geo.par.instancing = True
+geo.par.instancecountmode = 'oplength'
+geo.par.instanceop = dat['inst_t']
+geo.par.instancetop = dat['inst_t']
+geo.par.instancetx='r'; geo.par.instancety='g'; geo.par.instancetz='b'
+geo.par.instancerop = dat['inst_r']
+geo.par.instancerx='r'; geo.par.instancery='g'; geo.par.instancerz='b'
+geo.par.instancesop = dat['inst_s']
+geo.par.instancesx='r'; geo.par.instancesy='g'; geo.par.instancesz='b'
+geo.par.instancecolorop = dat['inst_c']
+geo.par.instancer='r'; geo.par.instanceg='g'; geo.par.instanceb='b'
+
+tgt = c.create(td.nullCOMP,'target')
+cam = c.create(td.cameraCOMP,'cam')
+cam.par.tx.expr = "math.sin(%s)*%sDistance" % (ORBIT(),P)
+cam.par.tz.expr = "math.cos(%s)*%sDistance" % (ORBIT(),P)
+cam.par.ty.expr = P+"Elevation"
+cam.par.fov.expr = P+"Fov"
+cam.par.lookat = tgt
+lt = c.create(td.lightCOMP,'light')
+lt.par.tx.expr = "math.sin(%sLightangle)*%sLightheight*0.7" % (P,P)
+lt.par.tz.expr = "math.cos(%sLightangle)*%sLightheight*0.7" % (P,P)
+lt.par.ty.expr = P+"Lightheight"
+lt.par.lookat = tgt
+lt.par.dimmer.expr = P+"Lightintensity"
+lt.par.shadowtype.expr = "'hard2d' if "+P+"Shadows else 'off'"
+al = c.create(td.ambientlightCOMP,'ambient_light')
+al.par.dimmer.expr=P+"Ambient"
+rt = c.create(td.renderTOP,'render')
+rt.par.camera = cam; rt.par.geometry = geo; rt.par.lights = 'light ambient_light'
+setres(rt)
+rt.par.bgcolorr.expr="0 if %s else %sBgcolorr"%(LOOKI,P); rt.par.bgcolorg.expr="0 if %s else %sBgcolorg"%(LOOKI,P); rt.par.bgcolorb.expr="0 if %s else %sBgcolorb"%(LOOKI,P); rt.par.bgcolora=1
+rt.par.antialias = 'aa4'
+# dry = default/in1 image scaled to render resolution
+src = c.create(td.switchTOP, 'src'); src.inputConnectors[0].connect(sw)
+setres(src); src.par.format = 'rgba16float'
+finish_v2(c, COMP, rt, src)
+report(c)
