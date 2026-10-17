@@ -227,10 +227,7 @@ add_pars(c, [
     ('Range', 'float', 0.08, 0, 0.5),
     ('Falloff', 'float', 0.4, 0.02, 1),
     ('Maxblur', 'float', 28, 0, 100),
-    ('Quality', 'int', 64, 8, 160),
-    ('Boost', 'float', 2.0, 0, 20),
     ('Blades', 'int', 6, 0, 12),
-    ('Bladerot', 'float', 0.2, 0, 6.28),
     ('Modamount', 'float', 0.5, 0, 2),
     *COMMON,
 ])

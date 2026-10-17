@@ -15,7 +15,6 @@ Post effect: depth of field (Luma Blur TOP driven by the distance of the depth m
 |---|---|---|
 | Controls | Depthmode, Invertdepth, Focus, Range, Falloff | depth source; focus distance (0-1), in-focus half-range, ramp to full blur |
 | | Maxblur (px @720p), Blades | bokeh size; Blades >= 3 = hard-edged box blur, < 3 = soft Gaussian |
-| | Quality, Boost, Bladerot | kept for compatibility; no effect with the native Luma Blur (see Implementation) |
 | | Speed | default scene speed |
 | | Modamount | strength of the modulation input |
 | | Mix, Bypass | dry/wet against in1 (default scene when unconnected); Bypass passes in1 straight through |
@@ -32,7 +31,7 @@ Network (left to right): `in1` / `demo` -> `src`; `in2` / `demo` -> `depthsrc` -
 - **Debug views (native, only cooked when selected):** `coc_x` Math + Level clamp + Lookup into a smoothstep Ramp give the focus map, coloured green -> red by a second Lookup (Showcoc); Showdepth shows `prep`.
 - **Demo scene (native, gated `demo` COMP):** Constant/Rectangle TOPs for the floor lines (perspective spacing animated with the loop phase), a vertical Ramp for the floor depth, 30 Circle TOPs for the dots (drawn far to near, colour and depth versions).
 - **GLSL kept: `mblur` (mblur.glsl, 24-tap velocity blur).** The native equivalent is N Displace TOPs along the velocity vector averaged by a Composite TOP: 8 taps cost about 10 full-frame passes (benchmarked at roughly 2x the GPU time of the whole old component), while one small shader does it in a single pass, so this part stays GLSL. It only cooks when in3 is connected.
-- **Lost vs the GLSL version:** the polygon/disc bokeh with highlight boost (`Boost`, `Bladerot`, `Quality` no longer have an effect; `Blades` now only switches between a round Gaussian and a hard-edged box blur) and the rule that in-focus pixels do not bleed onto blurred neighbours (Luma Blur is a plain variable-width blur). The blur width ramp is linear (was smoothstep).
+- **Lost vs the GLSL version:** the polygon/disc bokeh with highlight boost (the `Quality`, `Boost` and `Bladerot` parameters were removed; `Blades` now only switches between a round Gaussian and a hard-edged box blur) and the rule that in-focus pixels do not bleed onto blurred neighbours (Luma Blur is a plain variable-width blur). The blur width ramp is linear (was smoothstep).
 
 Benchmark (`tools/bench.py --against`, interleaved medians, GPU ms; three runs):
 

@@ -7,7 +7,7 @@ m = ex.create(moviefileinTOP, 'photo'); m.par.file.expr = sample_expr('Map/Jelly
 d = ex.create(rampTOP, 'depth'); d.par.type = 'radial'
 d.par.outputresolution = 'custom'; d.par.resolutionw = 1280; d.par.resolutionh = 720
 g = instance(ex, 'TOP_dof_motionblur'); g.inputConnectors[0].connect(m); g.inputConnectors[1].connect(d)
-g.par.Focus = 0.0; g.par.Range = 0.08; g.par.Maxblur = 40; g.par.Boost = 4; g.par.Mbactive = 0
+g.par.Focus = 0.0; g.par.Range = 0.08; g.par.Maxblur = 40; g.par.Mbactive = 0
 out(ex, 1, g)
 
 # 2. rack focus via modulation
