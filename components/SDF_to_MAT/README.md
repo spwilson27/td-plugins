@@ -15,4 +15,4 @@ Wire format: see the SDF section of `CONVENTIONS.md`. Parameters are animatable 
 - **Bounds Center / Size**: the proxy box in the geometry's object space. The Geometry should be a box covering it (e.g. Box SOP with the same Size). The SDF is marched in object space, so the Geometry COMP's transform moves it. Rays start on the Bounds box, so cameras inside the box also work.
 - **Max Steps / Epsilon / Step Scale**, **Key Azimuth/Elevation**, **Shadow Hardness**, **Ambient Occlusion**, **Output Gamma**.
 - Depth is written (`gl_FragDepth`), so SDFs intersect ordinary polygons correctly. Lighting is built in; scene lights are ignored.
-
+- Texture / buffer references of the scene (`@tex`, e.g. a baked `SDF_from_POP` mesh or its point buffers) are bound as named samplers / buffers of the material automatically.

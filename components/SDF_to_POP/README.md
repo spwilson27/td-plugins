@@ -13,4 +13,4 @@ Wire format: see the SDF section of `CONVENTIONS.md`. Parameters are animatable 
 ## Parameters
 - **Resolution** voxels per side, **Bounds Center / Size**, **Inflate** (iso offset: positive grows the mesh), **Normals** (None, smooth gradient, flat surface).
 - Colour is not carried to the mesh. Surfaces clipped by the bounds are open.
-
+- The bake is a compute dispatch, so scenes with texture / buffer references (`SDF_from_POP`) convert correctly too.

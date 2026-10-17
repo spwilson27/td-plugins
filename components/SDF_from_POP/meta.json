@@ -1,0 +1,1 @@
+{"description": "SDF primitive from POP geometry: points become smooth-unioned metaballs (live, GPU grid), or a closed mesh is baked into a distance volume (lossy). Wire its SDF output into other SDF_ nodes.", "version": "1.0.0"}

@@ -22,6 +22,7 @@ from tdwait import wait_frames
 from td_mcp.client import call, load_connection
 
 ROOT = Path(__file__).resolve().parent.parent
+FIXTURE = (ROOT / "tools" / "fixtures" / "SDF_input.txt").read_text() if (ROOT / "tools" / "fixtures" / "SDF_input.txt").exists() else ""
 
 
 def run(conn, code):
@@ -36,7 +37,7 @@ import td, json
 b = op('/bench') or op('/').create(td.baseCOMP, 'bench')
 for ch in list(b.children): ch.destroy()
 c = b.loadTox(TOX); c.name = 'c'
-ins = sorted([o for o in c.children if o.OPType in ('inTOP','inPOP','inCHOP','inSOP')], key=lambda o: o.name)
+ins = sorted([o for o in c.children if o.OPType in ('inTOP','inPOP','inCHOP','inSOP','inDAT')], key=lambda o: o.name)
 for i, o in enumerate(ins):
     t = o.OPType
     if t == 'inTOP':
@@ -49,6 +50,8 @@ for i, o in enumerate(ins):
             if hasattr(s.par, pn): setattr(s.par, pn, v)
     elif t == 'inSOP':
         s = b.create(td.gridSOP, 'src%d' % i); s.par.rows = 200; s.par.cols = 200
+    elif t == 'inDAT':
+        s = b.create(td.textDAT, 'src%d' % i); s.text = SDF_FIXTURE
     else:
         s = b.create(td.constantCHOP, 'src%d' % i)
         for k, ch in enumerate(('band1', 'band2', 'band3', 'band4', 'beat')):
@@ -102,7 +105,7 @@ def main():
     tox = Path(a.tox).resolve() if a.tox else ROOT / "tox" / fam / f"{a.name}.tox"
     if a.against:
         return interleaved(conn, a, Path(a.against).resolve(), tox.resolve())
-    ins = json.loads(run(conn, f"TOX = {str(tox)!r}\n" + SETUP))
+    ins = json.loads(run(conn, f"TOX = {str(tox)!r}\nSDF_FIXTURE = {FIXTURE!r}\n" + SETUP))
     outdir = ROOT / "validation" / "bench"; outdir.mkdir(parents=True, exist_ok=True)
     res = {}
     for (w, h) in ((1280, 720), (1920, 1080)):
@@ -139,7 +142,7 @@ def interleaved(conn, a, old, new):
     ins = []
     for r in range(a.repeats):
         for label, tox in (("old", old), ("new", new)):
-            ins = json.loads(run(conn, f"TOX = {str(tox)!r}\n" + SETUP))
+            ins = json.loads(run(conn, f"TOX = {str(tox)!r}\nSDF_FIXTURE = {FIXTURE!r}\n" + SETUP))
             for (w, h) in ((1280, 720), (1920, 1080)):
                 key = f"{w}x{h}"
                 runs[label].setdefault(key, []).append(measure(conn, a.frames, w, h)["gpu_ms"])

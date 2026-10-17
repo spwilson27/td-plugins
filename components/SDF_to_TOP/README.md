@@ -13,4 +13,4 @@ Wire format: see the SDF section of `CONVENTIONS.md`. Parameters are animatable 
 ## Parameters
 - **Resolution** voxels per side, **Bounds Center / Size** world-space box that is baked (outside the box the field is not defined), **Precision** 16 or 32-bit float.
 - Preview: a raymarch of the baked volume itself, so you see what the texture holds.
-
+- The bake is a compute dispatch, so scenes with texture / buffer references (`SDF_from_POP`) bake correctly too.

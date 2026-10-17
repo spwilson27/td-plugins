@@ -1,0 +1,20 @@
+{
+  "Mode": "points: every input point becomes a sphere (metaball), smooth-unioned, evaluated live through a GPU grid. mesh: the input triangles are baked into a 3D distance volume (lossy, needs closed meshes).",
+  "Radius": "Sphere radius per point in world units (multiplied by the PointScale attribute when Use PointScale is on).",
+  "Blend": "Smooth-union radius K in world units: how far apart two spheres still melt into each other. 0 = hard union. The modulation CHOP band1 adds up to 2x.",
+  "Usepscale": "Multiply Radius by the input's PointScale attribute when the points have one.",
+  "Usecolor": "Take each sphere's colour from the input's Color attribute when the points have one; otherwise (or when off) the Color parameter is used.",
+  "Maxpoints": "Only the first Max Points input points are used.",
+  "Gridres": "Cells per side of the acceleration grid built over the points' bounding box every frame. More cells = fewer points to test per ray step, but a bigger grid to clear and fill.",
+  "Cellcap": "Points kept per grid cell. A cell that is crowded beyond this loses the extra spheres (visible as holes); raise it for dense clouds or large Radius/Blend.",
+  "Resolution": "Voxels per side of the baked distance volume (32 to 256). Memory and bake time grow with the cube of it.",
+  "Boundsmode": "auto: bounding box of the mesh as a cube plus Padding. manual: the Bounds Center / Size boxes below.",
+  "Padding": "Extra space around an auto bounding box, as a fraction of its largest side.",
+  "Boundscenter": "Center of the baked volume in manual bounds mode.",
+  "Boundssize": "Size of the baked volume in manual bounds mode.",
+  "Band": "Width of the exact narrow band around the surface, in voxels. Beyond it the volume holds only the band width (a safe lower bound), so rays still converge but take shorter steps.",
+  "Update": "once: the input mesh is captured when the component loads, on Bake Now, and when the input wiring or this menu changes; it is then frozen (upstream stops cooking), while Resolution, Padding, Bounds and Band re-bake that copy. Every frame: bake the live input every frame, for animated meshes.",
+  "Bake": "Re-capture the input mesh and bake it now (Update = once).",
+  "Color": "Surface colour: the fallback for points without a Color attribute, and the colour of a baked mesh.",
+  "Previewscale": "Zoom of the node-viewer preview: its camera sits at 3 world units times this. Raise it when your geometry is larger than a few units."
+}

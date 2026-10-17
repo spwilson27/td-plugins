@@ -22,3 +22,6 @@ Raymarches an SDF wire into an image. A GLSL TOP renders colour, depth, normals 
 ## Notes
 - Shading is a simple key / fill / rim + sky model using the SDF's albedo channel; no material system.
 - The scene shader only recompiles when the SDF graph structure changes (nodes added, removed, mode menus), never for parameter changes.
+- Scenes that carry texture / buffer references (`@tex` records, e.g. `SDF_from_POP`) get them bound as extra inputs of the renderer automatically (up to 6 buffers, 3 2D and 3 3D textures per scene); the environment TOP uses the first 2D slot.
+- Cost with `SDF_from_POP` at 1280x720 (default shadows + AO, Apple GPU): about 8 ms for 20 000 points and 11 ms for 100 000 points (plus about 1 ms to rebuild the point grid each frame), so points stay real-time (>= 55 fps) up to roughly 100 000 points with full shading and roughly 500 000 without shadows / AO. A baked mesh costs one trilinear texture sample per distance evaluation. See `SDF_from_POP/README.md`.
+- The `@tex` plumbing does not slow existing scenes: sphere + torus + deform at 1280x720 measured +3 % (within the +-10 % noise) against the previous SDF_render.

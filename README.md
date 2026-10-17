@@ -1,6 +1,6 @@
 # td-plugins
 
-70 reusable TouchDesigner components (`.tox`) for VJ work, generative visuals and post effects. They were built and tested on TouchDesigner 2025.32820 (macOS).
+71 reusable TouchDesigner components (`.tox`) for VJ work, generative visuals and post effects. They were built and tested on TouchDesigner 2025.32820 (macOS).
 
 **Using a component:** add `~/software/td-plugins/tox` as a Palette folder (or drag `tox/<FAMILY>/<NAME>.tox` into your network). The name prefix tells you what it takes: `TOP_` an image, `POP_` geometry, `GEN_` nothing (generator), `MAT_` a material at `<comp>/mat`. Output connectors are labelled; `out1` is always the final image.
 **Examples:** every component has 1–3 example networks, like TouchDesigner's OP Snippets. Pulse About ▸ Snippets on the component, or open `snippets/<NAME>.tox`.
@@ -77,6 +77,7 @@
 | SDF_combine | SDF operation: union, subtract, intersect or morph two SDFs with smooth blending. |
 | SDF_deform | SDF operation: twist, bend, noise-displace, round or hollow out (onion) an SDF. |
 | SDF_fractal | SDF primitive: Mandelbulb, Menger sponge or kaleidoscopic IFS fractal distance estimator. |
+| SDF_from_POP | SDF primitive from POP geometry: points become smooth-unioned metaballs (live, GPU grid), or a closed mesh is baked into a distance volume (lossy). Wire its SDF output into other SDF_ nodes. |
 | SDF_gyroid | SDF primitive: gyroid / Schwarz-P / diamond triply periodic minimal surface, optionally bounded by a sphere. |
 | SDF_plane | SDF primitive: infinite plane with optional checker. |
 | SDF_render | SDF renderer: raymarches an SDF wire into color, linear depth, view normals and world position, using a Camera COMP. |

@@ -10,6 +10,15 @@
 #   vec4 sdf_n123(vec3 p){ return vec4(length(p)-P_n123_0.x, P_n123_1.xyz); }
 #   @end
 #   @scene n123                id of the node whose function is the final scene
+#
+# Optional texture/buffer references (wire extension, backward compatible: payloads without @tex are unchanged,
+# and older parsers ignore the line). A node record may start with any number of
+#   @tex <name> <type> <oppath> [<attr> [<class>]]
+# <name> is a GLSL-safe identifier unique in the scene (use T_@ID@_<k>). <type> is 2d | 3d (a TOP) or buffer (one
+# attribute of a POP; <attr> default P, <class> default point). The consumer binds them as extra samplers/buffers:
+#   2d / 3d : `#define <name> sTD2DInputs[i]` / `sTD3DInputs[i]` (GLSL TOP) or a `uniform sampler2D/3D <name>` (GLSL MAT)
+#   buffer  : the node code reads it with TDBuffer_<name>(index)
+# Records travel upstream->downstream like @node records and are de-duplicated with them.
 MAXV = 128
 
 def _f(x):
@@ -21,7 +30,12 @@ def parse(text):
         if line.startswith('@node'):
             w = line.split()
             if len(w) < 2: continue
-            cur = dict(id=w[1], kind=w[2] if len(w) > 2 else '', vals=[], code=[]); mode = None
+            cur = dict(id=w[1], kind=w[2] if len(w) > 2 else '', vals=[], code=[], tex=[]); mode = None
+        elif line.startswith('@tex'):
+            w = line.split()
+            if cur is not None and len(w) >= 4:
+                cur['tex'].append(dict(name=w[1], type=w[2], path=w[3], attr=w[4] if len(w) > 4 else 'P',
+                                       cls=w[5] if len(w) > 5 else 'point'))
         elif line.startswith('@vals'):
             mode = 'v'
         elif line.startswith('@code'):
@@ -50,6 +64,8 @@ def emit(nodes, scene):
     o = ['#SDF 1']
     for n in nodes:
         o.append('@node %s %s' % (n['id'], n.get('kind', '')))
+        for t in n.get('tex', []):
+            o.append('@tex %s %s %s %s %s' % (t['name'], t['type'], t['path'], t.get('attr', 'P'), t.get('cls', 'point')))
         o.append('@vals')
         for v in n['vals']:
             o.append(' '.join(_f(x) for x in v))
@@ -70,7 +86,7 @@ def default_payload(which='A'):
         n = dict(id='d0', kind='sphere', vals=[(0.7, 0, 0, 0), (0.85, 0.85, 0.85, 0)], code=SPHERE.replace('@ID@', 'd0'))
     return [n], n['id']
 
-def build_node(owner, kind, ins, code, vals, defaults='AB'):
+def build_node(owner, kind, ins, code, vals, defaults='AB', tex=None):
     """Payload text for one node. ins: list of In DAT ops (or None). `code` uses @ID@ for this node's id,
     @A@/@B@ for the upstream scene ids. vals: list of 4-sequences (the node's parameters this frame)."""
     nid = 'n%d' % owner.id
@@ -86,40 +102,93 @@ def build_node(owner, kind, ins, code, vals, defaults='AB'):
     c = code.replace('@ID@', nid)
     for i, s in enumerate(ups):
         c = c.replace('@%s@' % 'AB'[i], 'sdf_' + s)
-    merged.append(dict(id=nid, kind=kind, vals=[tuple(float(x) for x in v) for v in vals], code=c))
+    tx = []
+    for t in (tex or []):
+        t = dict(t); t['name'] = t['name'].replace('@ID@', nid)
+        tx.append(t)
+    merged.append(dict(id=nid, kind=kind, vals=[tuple(float(x) for x in v) for v in vals], code=c.replace('@ID@', nid), tex=tx))
     return emit(merged, nid)
 
-def write_node(dat, owner, kind, ins, code, vals, defaults='AB'):
+def write_node(dat, owner, kind, ins, code, vals, defaults='AB', tex=None):
     dat.clear()
-    dat.write(build_node(owner, kind, ins, code, vals, defaults))
+    dat.write(build_node(owner, kind, ins, code, vals, defaults, tex))
 
-def assemble(text, tb=False):
-    """-> (glsl, vals). glsl declares `uniform vec4 uSdf[MAXV]`, the P_<id>_<k> macros, every node
-    function and `vec4 sdScene(vec3 p)`. It depends only on the payload structure (never on values)."""
+def assemble(text, tb=False, kind='top', base2d=0, base3d=0):
+    """-> (glsl, vals, texs). glsl declares `uniform vec4 uSdf[MAXV]`, the P_<id>_<k> macros, the texture
+    references, every node function and `vec4 sdScene(vec3 p)`. It depends only on the payload structure (never
+    on values). texs = the scene's @tex records (dicts) in order. kind 'top' (GLSL TOP: textures are
+    sTD2DInputs/sTD3DInputs[i], counted per type after `base2d`/`base3d` wired inputs) or 'mat' (GLSL MAT:
+    textures are samplers declared here and bound by name)."""
     nodes, scene = parse(text)
     if not nodes:
         nodes, scene = default_payload('A')
-    defs, funcs, vals = [], [], []
+    defs, funcs, vals, texs, seen = [], [], [], [], set()
+    n2, n3 = base2d, base3d
     for n in nodes:
         for k, v in enumerate(n['vals']):
             defs.append(('#define P_%s_%d texelFetch(uSdf, %d)' if tb else '#define P_%s_%d uSdf[%d]') % (n['id'], k, len(vals))); vals.append(v)
+        for t in n.get('tex', []):
+            if t['name'] in seen: continue
+            seen.add(t['name']); texs.append(t)
+            if t['type'] == '2d':
+                defs.append('uniform sampler2D %s;' % t['name'] if kind == 'mat' else '#define %s sTD2DInputs[%d]' % (t['name'], n2)); n2 += 1
+            elif t['type'] == '3d':
+                defs.append('uniform sampler3D %s;' % t['name'] if kind == 'mat' else '#define %s sTD3DInputs[%d]' % (t['name'], n3)); n3 += 1
         funcs.append(n['code'])
     if len(vals) > MAXV:
         raise Exception('SDF scene has %d parameter vec4s (max %d)' % (len(vals), MAXV))
     glsl = '\n'.join([('uniform samplerBuffer uSdf;' if tb else 'uniform vec4 uSdf[%d];' % MAXV)] + defs + funcs + ['vec4 sdScene(vec3 p){ return sdf_%s(p); }' % scene]) + '\n'
-    return glsl, vals
+    return glsl, vals, texs
 
-def write_shader(dat, in_text, template, tb=False):
+MAXBUF = 6    # buffer records bound per consumer (POP attribute buffers)
+MAXTOP = 3    # 2d and 3d texture records (each) bound per consumer
+
+def write_shader(dat, in_text, template, tb=False, kind='top', base=(0, 0)):
     """Script DAT body: shader = template with //@@SDF@@ replaced; rewritten only when it changes,
     so animating parameters never touches the shader DAT."""
-    glsl, _ = assemble(in_text, tb)
+    glsl, _, texs = assemble(in_text, tb, kind, base[0], base[1])
     full = template.replace('//@@SDF@@', glsl)
     if dat.text != full:
         dat.clear(); dat.write(full)
 
+def write_tex(dat, in_text):
+    """Script DAT body: the scene's @tex records as a table (name, type, path, attr, class). The consumer's GLSL
+    TOP/MAT reads it through par expressions (tex_par), so textures and buffers are bound in the same cook as
+    the shader text, with no parameter writes from a cook (those create cook dependency loops)."""
+    _, _, texs = assemble(in_text)
+    nb = len([t for t in texs if t['type'] == 'buffer'])
+    n2 = len([t for t in texs if t['type'] == '2d']); n3 = len([t for t in texs if t['type'] == '3d'])
+    if nb > MAXBUF or n2 > MAXTOP or n3 > MAXTOP:
+        raise Exception('SDF scene has %d buffer / %d 2d / %d 3d references (max %d / %d / %d)' % (nb, n2, n3, MAXBUF, MAXTOP, MAXTOP))
+    dat.clear()
+    for t in texs:
+        dat.appendRow([t['name'], t['type'], t['path'], t['attr'], t['cls']])
+
+def tex_par(tbl, kind, i=0, field='path'):
+    """Parameter-expression helper for a consumer GLSL TOP/MAT. kind 'tops' -> the space-separated TOP paths for
+    GLSL TOP `tops`: always MAXTOP 2d slots followed by MAXTOP 3d slots (placeholders `notex` / `notex3` for unused
+    ones), so the shader's sTD2DInputs / sTD3DInputs arrays never change size when the scene changes (a GLSL TOP
+    does not recompile when only its input list changes). 'buffer' / 'sampler' -> field (path|attr|cls|name) of the
+    i-th buffer / 2d-3d record; missing records return harmless placeholders (a 1-point POP `nobuf`, ...)."""
+    rows = [[c.val for c in r] for r in tbl.rows()]
+    pp = tbl.parent().path
+    if kind == 'tops':
+        out = []
+        for ty, ph in (('2d', '/notex'), ('3d', '/notex3')):
+            real = [r[2] for r in rows if r[1] == ty]
+            out += real + [pp + ph] * (MAXTOP - len(real))
+        return ' '.join(out)
+    sel = [r for r in rows if (r[1] == 'buffer') == (kind == 'buffer')]
+    if i < len(sel):
+        r = sel[i]
+        return {'path': r[2], 'attr': r[3], 'cls': r[4], 'name': r[0]}[field]
+    dflt = {'path': pp + ('/nobuf' if kind == 'buffer' else '/notex'), 'attr': 'P', 'cls': 'point',
+            'name': ('uNoBuf%d' if kind == 'buffer' else 'uNoTex%d') % i}
+    return dflt[field]
+
 def write_vals(dat, in_text):
     """Script DAT body: the parameter values as a MAXV x 4 table (feeds a DAT to CHOP -> uniform array uSdf)."""
-    _, vals = assemble(in_text)
+    _, vals, _ = assemble(in_text)
     vals = list(vals) + [(0, 0, 0, 0)] * (MAXV - len(vals))
     dat.clear()
     for v in vals:
