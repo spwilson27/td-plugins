@@ -105,12 +105,78 @@ print(float(abs(a[::4, ::4, :3] - b).mean()) if (a is not None and b is not None
     m2 = float(r2["stdout"].strip().splitlines()[-1])
     rep["frame_diff"] = round(m2, 5)
     rep["animating"] = m2 > 1e-4
+    # ---- phase 2: supported configuration = every input connected to a test source ----
+    rep["connected"] = connected_phase(conn, name, secs, only_primary=True)
+    rep["connected_all"] = connected_phase(conn, name, secs, only_primary=False)
     rep["png"] = str(png) if png.exists() else None
     util = name.startswith("UTIL_")   # utilities output DATs: no image/animation requirement
-    rep["pass"] = (not [p for p in rep["problems"] if p[0] in ("error", "script")] and not rep.get("conventions")
+    cps = (rep["connected"], rep["connected_all"])
+    rep["pass"] = (not rep["problems"] and not rep.get("conventions")
+                   and not any(cp.get("problems") or cp.get("demo_cooking") for cp in cps)
                    and (util or (bool(rep["outs"]) and rep.get("std", 0) > 0.002)))
     print(json.dumps(rep, indent=1))
     sys.exit(0 if rep["pass"] else 1)
+
+FIXTURE_DAT = ROOT / "tools" / "fixtures" / "SDF_input.txt"   # what an SDF_ wire carries (written by the SDF_ components)
+
+
+def connected_phase(conn, name, secs, only_primary=False):
+    """Connect a test source to every In op, run, and report errors/warnings plus whether the
+    component's `demo` COMP (preview-only sources) still cooks. Inputs are disconnected afterwards."""
+    sdf = FIXTURE_DAT.read_text() if FIXTURE_DAT.exists() else ""
+    r = run(conn, f"""
+import json, td
+c = op('/validate/{name}'); v = op('/validate')
+fx = v.op('fx_{name}')
+if fx: fx.destroy()
+fx = v.create(td.baseCOMP, 'fx_{name}')
+ins = sorted([o for o in c.children if o.OPType in ('inTOP','inPOP','inCHOP','inSOP','inDAT')], key=lambda o: o.name)
+made = []
+for i, o in enumerate(ins[:1] if {only_primary} else ins):
+    t = o.OPType
+    if t == 'inTOP':
+        s = fx.create(td.noiseTOP, 'top%d' % i); s.par.outputresolution = 'custom'; s.par.resolutionw = 1280; s.par.resolutionh = 720
+        s.par.tz.expr = 'absTime.seconds * 0.3'; s.par.mono = False
+    elif t == 'inPOP':
+        s = fx.create(td.spherePOP, 'pop%d' % i)
+    elif t == 'inSOP':
+        s = fx.create(td.sphereSOP, 'sop%d' % i)
+    elif t == 'inCHOP':
+        s = fx.create(td.constantCHOP, 'chop%d' % i)
+        for k, ch in enumerate(('band1', 'band2', 'band3', 'band4', 'beat', 'phase')):
+            getattr(s.par, 'name%d' % k).val = ch; getattr(s.par, 'value%d' % k).val = 0.5
+    else:
+        s = fx.create(td.textDAT, 'dat%d' % i); s.text = {sdf!r}
+    c.inputConnectors[i].connect(s); made.append([o.name, t])
+print(json.dumps(made))
+""")
+    made = json.loads(r["stdout"].strip().splitlines()[-1])
+    time.sleep(max(1.0, secs / 2))
+    # cook counts of preview-only demo ops, sampled twice
+    snap = f"""
+import json
+c = op('/validate/{name}'); d = c.op('demo')
+print(json.dumps({{o.path: o.totalCooks for o in d.findChildren()}} if d else {{}}))
+"""
+    a = json.loads(run(conn, snap)["stdout"].strip().splitlines()[-1])
+    time.sleep(1.0)
+    b = json.loads(run(conn, snap)["stdout"].strip().splitlines()[-1])
+    cooking = sorted(p for p in b if b[p] != a.get(p))
+    r = run(conn, f"""
+import json
+c = op('/validate/{name}')
+errs = []
+for o in [c] + c.findChildren():
+    for kind, s in (('error', o.errors()), ('warning', o.warnings()), ('script', o.scriptErrors())):
+        if s: errs.append([kind, o.path, s[:300]])
+for i in range(len(c.inputConnectors)):
+    c.inputConnectors[i].disconnect()
+op('/validate/fx_{name}').destroy()
+print(json.dumps(errs))
+""")
+    errs = json.loads(r["stdout"].strip().splitlines()[-1])
+    return dict(inputs=made, problems=errs, demo_cooking=cooking[:10], has_demo=bool(a or b))
+
 
 if __name__ == "__main__":
     main()

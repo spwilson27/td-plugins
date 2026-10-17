@@ -31,7 +31,7 @@ c = h.loadTox(spec['raw'])
 c.name = NAME
 log = []
 
-OUT_TYPES = {'TOP': td.outTOP, 'POP': td.outPOP, 'CHOP': td.outCHOP, 'SOP': td.outSOP, 'DAT': td.outDAT}
+OUT_TYPES = {'TOP': td.outTOP, 'POP': td.outPOP, 'CHOP': td.outCHOP, 'SOP': td.outSOP, 'DAT': td.outDAT, 'MAT': td.outMAT}
 REAL_OUT = ('outTOP', 'outPOP', 'outCHOP', 'outSOP', 'outDAT', 'outMAT')
 IN_TYPES = ('inTOP', 'inPOP', 'inCHOP', 'inSOP', 'inDAT')
 
@@ -41,10 +41,10 @@ OUTL, INL = LBL.get('outputs', {}), LBL.get('inputs', {})
 cands = [o for o in c.children if o.name.startswith('out') and o.family in OUT_TYPES]
 def okey(o):
     # out1 first, then other TOPs by name, then POP/SOP/CHOP/DAT
-    return (o.name != 'out1', ['TOP', 'POP', 'SOP', 'CHOP', 'DAT'].index(o.family), o.name)
+    return (o.name != 'out1', ['TOP', 'POP', 'SOP', 'CHOP', 'DAT', 'MAT'].index(o.family), o.name)
 cands.sort(key=okey)
 assert cands and cands[0].name == 'out1', 'component needs an out1'
-assert cands[0].family == 'TOP' or (cands[0].family == 'POP' and FAM in ('GEN', 'POP')) or (cands[0].family == 'DAT' and FAM == 'UTIL'), 'out1 must be a TOP (a POP for GEN_/POP_, a DAT for UTIL_)'
+assert cands[0].family == 'TOP' or (cands[0].family == 'POP' and FAM in ('GEN', 'POP')) or (cands[0].family == 'DAT' and FAM == 'UTIL') or FAM == 'SDF', 'out1 must be a TOP (a POP for GEN_/POP_, a DAT for UTIL_; SDF_ any)'
 if cands[0].family != 'TOP' and FAM not in ('MAT', 'UTIL'):
     assert c.op('preview') is not None and c.op('preview').isTOP, 'components whose out1 is not a TOP need an internal preview TOP'
 final = []
@@ -146,13 +146,13 @@ cb.nodeX, cb.nodeY = -400, -400
 # --- page order -----------------------------------------------------------
 names = [pg.name for pg in c.customPages]
 head = [n for n in (('Material',) if FAM == 'MAT' else ('Controls',)) if n in names]
-tail = [n for n in ('Look', 'Loop', 'About') if n in names]
+tail = [n for n in ('Look', 'About') if n in names]
 mid = [n for n in names if n not in head + tail]
 c.sortCustomPages(*(head + mid + tail))
 
 # --- node appearance ------------------------------------------------------
 COL = {'TOP': (0.25, 0.42, 0.75), 'GEN': (0.25, 0.6, 0.35), 'POP': (0.55, 0.35, 0.7),
-       'SOP': (0.3, 0.55, 0.65), 'CHOP': (0.7, 0.6, 0.25), 'MAT': (0.8, 0.5, 0.2), 'UTIL': (0.45, 0.45, 0.45)}
+       'SOP': (0.3, 0.55, 0.65), 'CHOP': (0.7, 0.6, 0.25), 'MAT': (0.8, 0.5, 0.2), 'UTIL': (0.45, 0.45, 0.45), 'SDF': (0.75, 0.3, 0.45)}
 c.color = COL.get(FAM, (0.5, 0.5, 0.5))
 c.par.opviewer = './preview' if (c.op('preview') is not None and c.op('preview').isTOP) else './out1'   # OP refs resolve from the parent; ./ = inside
 c.viewer = True
@@ -238,12 +238,17 @@ def onPulse(par):
 def main():
     inst, name = sys.argv[1], sys.argv[2]
     man = {m['name']: m for m in json.loads((ROOT / 'components.json').read_text())}
-    m = man[name]
+    meta = ROOT / 'components' / name / 'meta.json'   # per-component override (new components before they're merged in)
+    m = dict(man.get(name, {}), **(json.loads(meta.read_text()) if meta.exists() else {}))
+    m.setdefault('name', name); m.setdefault('family', name.split('_')[0]); m.setdefault('version', '1.0.0'); m.setdefault('description', '')
     raw = sys.argv[3] if len(sys.argv) > 3 else str(ROOT / 'tox' / '_raw' / f'{name}.tox')
     labels = {}
     lf = ROOT / 'io_labels.json'
     if lf.exists():
         labels = json.loads(lf.read_text()).get(name, {})
+    lc = ROOT / 'components' / name / 'labels.json'
+    if lc.exists():
+        labels = json.loads(lc.read_text())
     spec = dict(m, raw=raw, out=str(ROOT / 'tox' / m['family'] / f'{name}.tox'), labels=labels)
     code = f"SPEC = {json.dumps(json.dumps(spec))}\nABOUT_CB = {ABOUT_CB!r}\nAPPLY_CB = {APPLY_CB!r}\n" + TD_CODE
     conn = load_connection(tdctl.d(inst) / 'connection.json')

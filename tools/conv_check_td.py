@@ -4,8 +4,8 @@ fam = c.name.split('_')[0]
 conv = []
 REAL_OUT = ('outTOP','outPOP','outCHOP','outSOP','outDAT','outMAT')
 realouts = sorted([o for o in c.children if o.OPType in REAL_OUT], key=lambda o: o.name)
-if fam not in ('TOP','POP','SOP','CHOP','GEN','MAT','UTIL'): conv.append('name must start with TOP_/POP_/SOP_/CHOP_/GEN_/MAT_/UTIL_')
-want1 = ('outMAT',) if fam == 'MAT' else (('outTOP', 'outPOP') if fam in ('GEN', 'POP') else (('outDAT', 'outTOP') if fam == 'UTIL' else ('outTOP',)))
+if fam not in ('TOP','POP','SOP','CHOP','GEN','MAT','UTIL','SDF'): conv.append('name must start with TOP_/POP_/SOP_/CHOP_/GEN_/MAT_/UTIL_/SDF_')
+want1 = ('outMAT',) if fam == 'MAT' else (('outTOP', 'outPOP') if fam in ('GEN', 'POP') else (('outDAT', 'outTOP') if fam == 'UTIL' else (('outDAT', 'outTOP', 'outPOP', 'outMAT') if fam == 'SDF' else ('outTOP',))))
 if not realouts or realouts[0].name != 'out1' or realouts[0].OPType not in want1: conv.append('out1 must be a real ' + '/'.join(want1))
 pv = c.op('preview')
 if fam != 'UTIL' and realouts and realouts[0].OPType != 'outTOP' and not (pv is not None and pv.isTOP): conv.append('out1 is not a TOP: an internal preview TOP named preview is required')
@@ -43,9 +43,9 @@ for a, b in (('Look','Loop'), ('Loop','About'), ('Look','About')):
     if a in pages and b in pages and pages.index(a) > pages.index(b): conv.append(a + ' must come before ' + b)
 for pn in ('Version','Description','Family','Libraryroot','Help','Snippets'):
     if not hasattr(c.par, pn): conv.append('About page missing ' + pn)
-if 'Loop' in pages:
-    for pn in ('Timesource','Phase','Clock'):
-        if not hasattr(c.par, pn): conv.append('Loop page missing ' + pn)
+if 'Loop' in pages: conv.append('Loop page is not allowed (v3: animation is preview-only)')
+for pn in ('Timesource', 'Phase', 'Clock', 'Loopseconds', 'Loopbeats', 'Loopreset'):
+    if hasattr(c.par, pn): conv.append('loop parameter not allowed: ' + pn)
 if fam == 'TOP':
     for pn in ('Mix','Bypass','Resolutionmode'):
         if not hasattr(c.par, pn): conv.append('TOP_ effect missing ' + pn)
@@ -55,4 +55,6 @@ _ns = {}
 exec(open(__import__('os').path.join(__import__('os').path.expanduser(__import__('os').environ.get('TD_PLUGINS_HOME', '~/software/td-plugins')), 'td_organize', 'td_runtime.py')).read(), _ns)
 _ov = _ns['check'](c)
 if _ov: conv.append('overlapping nodes (%d): %s' % (len(_ov), str(_ov[:4])))
+if fam in ('TOP', 'POP') and ins and c.op('demo') is None:
+    conv.append('preview-only demo sources must live in a Base COMP named demo (gated off when inputs are connected)')
 print(json.dumps(conv))

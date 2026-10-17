@@ -147,67 +147,60 @@
   "version": "1.0.0"
  },
  {
-  "old": "gpu_particles",
-  "name": "GEN_gpu_particles",
-  "family": "GEN",
-  "description": "GPU particles: emitter, curl noise, gravity, attractors",
-  "version": "1.0.0"
+  "old": "GEN_gpu_particles",
+  "name": "POP_particle_emitter",
+  "family": "POP",
+  "description": "Emit GPU particles from the input geometry (points/surface) with curl noise, gravity, attractors",
+  "version": "2.0.0"
  },
  {
-  "old": "reaction_diffusion",
-  "name": "GEN_reaction_diffusion",
-  "family": "GEN",
-  "description": "Gray-Scott reaction-diffusion with presets",
-  "version": "1.0.0"
+  "old": "GEN_reaction_diffusion",
+  "name": "TOP_reaction_diffusion",
+  "family": "TOP",
+  "description": "Gray-Scott reaction-diffusion grown from / fed by the input image; outputs the chemical field",
+  "version": "2.0.0"
  },
  {
-  "old": "fluid_2d",
-  "name": "GEN_fluid_2d",
-  "family": "GEN",
-  "description": "2D stable fluids with vorticity and emitters",
-  "version": "1.0.0"
+  "old": "GEN_fluid_2d",
+  "name": "TOP_fluid",
+  "family": "TOP",
+  "description": "2D stable fluid that advects and smears the input image; outputs velocity and dye fields",
+  "version": "2.0.0"
  },
  {
-  "old": "boids",
-  "name": "GEN_boids",
-  "family": "GEN",
-  "description": "GPU flocking rendered as instanced cones",
-  "version": "1.0.0"
+  "old": "GEN_boids",
+  "name": "POP_boids",
+  "family": "POP",
+  "description": "Flock the input points (boids); outputs the moving points and an instanced cone mesh",
+  "version": "2.0.0"
  },
  {
-  "old": "physarum",
-  "name": "GEN_physarum",
-  "family": "GEN",
-  "description": "Physarum slime-mold agents and trail map",
-  "version": "1.0.0"
+  "old": "GEN_physarum",
+  "name": "TOP_physarum",
+  "family": "TOP",
+  "description": "Slime-mold agents that follow the input image brightness; outputs the trail map",
+  "version": "2.0.0"
  },
  {
-  "old": "cellular_automata",
-  "name": "GEN_cellular_automata",
-  "family": "GEN",
-  "description": "Life-like and other cellular automata rules",
-  "version": "1.0.0"
+  "old": "GEN_cellular_automata",
+  "name": "TOP_cellular_automata",
+  "family": "TOP",
+  "description": "Cellular automata seeded and fed by the input image; outputs the cell state",
+  "version": "2.0.0"
  },
  {
-  "old": "verlet_cloth",
-  "name": "GEN_verlet_cloth",
-  "family": "GEN",
-  "description": "Verlet cloth with pinning, wind and sphere collider",
-  "version": "1.0.0"
+  "old": "GEN_verlet_cloth",
+  "name": "POP_cloth",
+  "family": "POP",
+  "description": "Verlet cloth simulation of the input mesh, pinned by group/attribute, wind, sphere collider",
+  "version": "2.0.0"
  },
  {
-  "old": "strange_attractors",
-  "name": "GEN_strange_attractors",
-  "family": "GEN",
-  "description": "Strange attractor particle clouds with morph and trails",
-  "version": "1.0.0"
- },
- {
-  "old": "sdf_raymarch",
-  "name": "GEN_sdf_raymarch",
-  "family": "GEN",
-  "description": "Raymarched SDF scene with smooth unions, shadows, AO",
-  "version": "1.0.0"
+  "old": "GEN_strange_attractors",
+  "name": "POP_attractor_advect",
+  "family": "POP",
+  "description": "Advect the input points along a strange-attractor field (Lorenz, Aizawa, Thomas...)",
+  "version": "2.0.0"
  },
  {
   "old": "lsystem",
@@ -217,60 +210,39 @@
   "version": "1.0.0"
  },
  {
-  "old": "voronoi",
-  "name": "GEN_voronoi",
-  "family": "GEN",
-  "description": "Animated Voronoi cells, edge glow, cracked/stained glass",
-  "version": "1.0.0"
+  "old": "GEN_voronoi",
+  "name": "TOP_voronoi",
+  "family": "TOP",
+  "description": "Voronoi cells / cracked & stained glass coloured by the input image; outputs cell ids and edges",
+  "version": "2.0.0"
  },
  {
-  "old": "flow_field_lines",
-  "name": "GEN_flow_field_lines",
-  "family": "GEN",
-  "description": "Long-exposure strokes along a flow field",
-  "version": "1.0.0"
+  "old": "GEN_flow_field_lines",
+  "name": "TOP_flow_field_lines",
+  "family": "TOP",
+  "description": "Long-exposure strokes flowing along a field derived from the input image",
+  "version": "2.0.0"
  },
  {
-  "old": "fractal_zoom",
-  "name": "GEN_fractal_zoom",
-  "family": "GEN",
-  "description": "Mandelbulb / Menger fractal dive, seamless loop",
-  "version": "1.0.0"
+  "old": "GEN_terrain_flyover",
+  "name": "POP_terrain",
+  "family": "POP",
+  "description": "Displace the input grid by a heightmap TOP: scrolling retro terrain geometry",
+  "version": "2.0.0"
  },
  {
-  "old": "infinite_tunnel",
-  "name": "GEN_infinite_tunnel",
-  "family": "GEN",
-  "description": "Raymarched infinite corridor",
-  "version": "1.0.0"
+  "old": "GEN_tentacles",
+  "name": "POP_tentacles",
+  "family": "POP",
+  "description": "Grow writhing tubes from the input points",
+  "version": "2.0.0"
  },
  {
-  "old": "mirror_room",
-  "name": "GEN_mirror_room",
-  "family": "GEN",
-  "description": "Kaleidoscopic mirror box with chrome object",
-  "version": "1.0.0"
- },
- {
-  "old": "terrain_flyover",
-  "name": "GEN_terrain_flyover",
-  "family": "GEN",
-  "description": "Retro wireframe/solid terrain flyover",
-  "version": "1.0.0"
- },
- {
-  "old": "tentacles",
-  "name": "GEN_tentacles",
-  "family": "GEN",
-  "description": "Writhing tube splines",
-  "version": "1.0.0"
- },
- {
-  "old": "video_synth",
-  "name": "GEN_video_synth",
-  "family": "GEN",
-  "description": "LZX/Hydra-style oscillator patches",
-  "version": "1.0.0"
+  "old": "GEN_video_synth",
+  "name": "TOP_video_synth",
+  "family": "TOP",
+  "description": "LZX/Hydra-style oscillators that modulate, displace and colorise the input image",
+  "version": "2.0.0"
  },
  {
   "old": "kinetic_type",
@@ -280,25 +252,11 @@
   "version": "1.0.0"
  },
  {
-  "old": "glyph_tunnel",
-  "name": "GEN_glyph_tunnel",
-  "family": "GEN",
-  "description": "Character tunnel, wall or rain",
-  "version": "1.0.0"
- },
- {
-  "old": "text_fluid",
-  "name": "GEN_text_fluid",
-  "family": "GEN",
-  "description": "Text injected into a fluid sim, smearing and re-forming",
-  "version": "1.0.0"
- },
- {
-  "old": "liquid_chrome",
-  "name": "GEN_liquid_chrome",
-  "family": "GEN",
-  "description": "Raymarched morphing liquid-chrome blob",
-  "version": "1.0.0"
+  "old": "GEN_glyph_tunnel",
+  "name": "TOP_glyphs",
+  "family": "TOP",
+  "description": "Glyph / ASCII rendering of the input image (grid, rain, tunnel layouts)",
+  "version": "2.0.0"
  },
  {
   "old": "iridescent_material",
@@ -403,6 +361,34 @@
   "name": "UTIL_auto_arrange",
   "family": "UTIL",
   "description": "Arrange a network: left-to-right flow, no overlapping nodes (td_organize)",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "TOP_depth_fog",
+  "family": "TOP",
+  "description": "Depth fog and horizon glow from a depth map (any Render TOP / SDF_render depth)",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "TOP_ssao",
+  "family": "TOP",
+  "description": "Screen-space ambient occlusion from depth + normals",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "TOP_env_reflect",
+  "family": "TOP",
+  "description": "Environment reflection (chrome / glass look) from normals and an env map",
+  "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "TOP_normal_shade",
+  "family": "TOP",
+  "description": "Shade a normal map with a matcap or key/rim lights",
   "version": "1.0.0"
  }
 ]
