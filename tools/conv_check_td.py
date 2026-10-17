@@ -57,4 +57,16 @@ _ov = _ns['check'](c)
 if _ov: conv.append('overlapping nodes (%d): %s' % (len(_ov), str(_ov[:4])))
 if fam in ('TOP', 'POP') and ins and c.op('demo') is None:
     conv.append('preview-only demo sources must live in a Base COMP named demo (gated off when inputs are connected)')
+# UI-only expressions (enable / default / bind) are evaluated by TouchDesigner when the parameter panel is drawn,
+# so a broken one only shows up as a warning in the UI. Evaluate them all here, in their owner's context.
+for o in [c] + c.findChildren(type=COMP):
+    for p in o.customPars:
+        for kind in ('enableExpr', 'defaultExpr', 'bindExpr'):
+            e = getattr(p, kind, '') or ''
+            if not e:
+                continue
+            try:
+                o.evalExpression(e)
+            except Exception as ex:
+                conv.append('%s %s on %s: %s' % (kind, p.name, o.path, str(ex)[:160]))
 print(json.dumps(conv))

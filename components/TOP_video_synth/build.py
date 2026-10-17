@@ -68,8 +68,8 @@ def std_top_pars(c):
     p = pg.appendMenu('Resolutionmode')[0]; p.menuNames = ['input', 'custom']; p.menuLabels = ['Follow input', 'Custom']; p.default = 'input'; p.val = 'input'
     for q, v in zip(pg.appendWH('Resolution'), (1280, 720)):
         q.default = v; q.val = v; q.min = 16; q.max = 8192; q.normMin = 16; q.normMax = 4096
-    c.par.Resolutionw.enableExpr = "parent().par.Resolutionmode=='custom'"
-    c.par.Resolutionh.enableExpr = "parent().par.Resolutionmode=='custom'"
+    c.par.Resolutionw.enableExpr = "me.par.Resolutionmode=='custom'"
+    c.par.Resolutionh.enableExpr = "me.par.Resolutionmode=='custom'"
 
 def mod_chop(c, name):
     """optional modulation In CHOP (band1..4, beat) merged over zeros so every channel always exists"""

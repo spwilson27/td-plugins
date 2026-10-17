@@ -120,8 +120,8 @@ def v3_finish(c, name, dry='src', mod=(), selfmix=False, outlabels=None):
         p = ctl.appendFloat('Mix')[0]; p.default = 1; p.val = 1; p.min = 0; p.max = 1; p.normMin = 0; p.normMax = 1; p.clampMin = p.clampMax = True
     ctl.appendToggle('Bypass')
     p = ctl.appendMenu('Resolutionmode')[0]; p.menuNames = ['input', 'custom']; p.menuLabels = ['Follow input', 'Custom']; p.default = 'input'; p.val = 'input'
-    c.par.Resolutionw.enableExpr = "parent().par.Resolutionmode=='custom'"
-    c.par.Resolutionh.enableExpr = "parent().par.Resolutionmode=='custom'"
+    c.par.Resolutionw.enableExpr = "me.par.Resolutionmode=='custom'"
+    c.par.Resolutionh.enableExpr = "me.par.Resolutionmode=='custom'"
     nin = len([o for o in c.children if o.OPType in ('inTOP', 'inSOP', 'inPOP')])
     im = c.create(td.inCHOP, 'in%d' % (nin + 1))
     mz = c.create(td.constantCHOP, 'modzero')

@@ -60,8 +60,8 @@ pg = P.appendMenu('Resolutionmode', label='Resolution Mode')
 pg[0].menuNames = ['input', 'custom']; pg[0].menuLabels = ['Follow input', 'Custom']; pg[0].default = 'input'; pg[0].val = 'input'
 pg = P.appendWH('Resolution', label='Resolution')
 for p, v in zip(pg, (1280, 720)): p.default = v; p.val = v; p.min = 16; p.clampMin = True; p.max = 4096; p.normMax = 4096
-c.par.Resolutionw.enableExpr = "parent().par.Resolutionmode=='custom'"
-c.par.Resolutionh.enableExpr = "parent().par.Resolutionmode=='custom'"
+c.par.Resolutionw.enableExpr = "me.par.Resolutionmode=='custom'"
+c.par.Resolutionh.enableExpr = "me.par.Resolutionmode=='custom'"
 
 A = c.appendCustomPage('Attractor')
 num(A, 'Attraction', 'Attraction', 12.0, -50, 50, clo=False, chi=False, nlo=-20, nhi=20)

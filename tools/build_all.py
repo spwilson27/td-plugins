@@ -94,6 +94,27 @@ def snippet_job(inst, name):
     return True, ""
 
 
+def alive(inst):
+    """True if the scratch instance answers td_status (cheap)."""
+    try:
+        sys.path.insert(0, str(TOOLS))
+        import tdctl  # noqa
+        from td_mcp.client import call, load_connection
+        r = call("td_status", connection=load_connection(tdctl.d(inst) / "connection.json"), timeout=10)
+        return "error" not in r
+    except Exception:
+        return False
+
+
+def ensure(inst):
+    """Make sure `inst` is up; (re)start it if not. Returns False if it can't be brought up."""
+    if alive(inst):
+        return True
+    run([PY, str(TOOLS / "tdctl.py"), "stop", inst], 60)
+    rc, out = run([PY, str(TOOLS / "tdctl.py"), "start", inst], 200)
+    return rc == 0 and alive(inst)
+
+
 def pool(insts, names, job, label, results, lock):
     q = queue.Queue()
     for n in names:
@@ -105,8 +126,18 @@ def pool(insts, names, job, label, results, lock):
                 n = q.get_nowait()
             except queue.Empty:
                 return
+            if not ensure(inst):
+                # this instance is dead and won't restart: hand the job back and retire the worker
+                q.put(n)
+                with lock:
+                    print(f"WARN {inst} unavailable, worker retired", flush=True)
+                return
             t0 = time.time()
             ok, msg = job(inst, n)
+            if not ok and not alive(inst):
+                # the instance died during the job: restart and retry once
+                if ensure(inst):
+                    ok, msg = job(inst, n)
             with lock:
                 results.setdefault(n, []).append((label, ok, msg))
                 print(f"{'ok  ' if ok else 'FAIL'} {label:9s} {n:28s} {time.time() - t0:5.1f}s [{inst}]" + ("" if ok else "  " + msg), flush=True)
@@ -116,6 +147,10 @@ def pool(insts, names, job, label, results, lock):
         t.start()
     for t in ts:
         t.join()
+    # anything left (all workers retired) is reported as not run
+    while not q.empty():
+        n = q.get_nowait()
+        results.setdefault(n, []).append((label, False, "not run: no TouchDesigner instance available"))
 
 
 def main():

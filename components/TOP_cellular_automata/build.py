@@ -43,8 +43,8 @@ P.appendToggle('Bypass', label='Bypass')
 menu(P, 'Resolutionmode', 'Resolution Mode', ['input', 'custom'], ['Follow input', 'Custom'])
 pg = P.appendWH('Resolution', label='Resolution')
 for p, v in zip(pg, (1280, 720)): p.default = v; p.val = v; p.min = 16; p.clampMin = True; p.max = 4096; p.normMax = 4096
-c.par.Resolutionw.enableExpr = "parent().par.Resolutionmode=='custom'"
-c.par.Resolutionh.enableExpr = "parent().par.Resolutionmode=='custom'"
+c.par.Resolutionw.enableExpr = "me.par.Resolutionmode=='custom'"
+c.par.Resolutionh.enableExpr = "me.par.Resolutionmode=='custom'"
 menu(P, 'Rule', 'Rule', ['life', 'brain', 'wireworld', 'ltl', 'custom'],
      ['Game of Life', "Brian's Brain", 'Wireworld', 'Larger than Life', 'Custom B/S'])
 rs = P.appendStr('Rulestring', label='B/S Rule'); rs[0].default = 'B3/S23'; rs[0].val = 'B3/S23'

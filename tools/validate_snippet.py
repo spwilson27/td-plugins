@@ -40,6 +40,23 @@ d.par.frameend = 1
 d.par.active = 1
 """)
     wait_frames(conn, frames)
+    # adaptive: heavy examples (e.g. long SDF chains) compile their shaders asynchronously after load;
+    # keep cooking in 60-frame steps (up to 600 extra) while any exampleN output is still blank
+    probe = """
+import json
+s = [c for c in op('/snipval').children if c.isCOMP and c.name != 'driver'][0]
+out = []
+for o in s.findChildren(type=nullTOP):
+    if o.name.startswith('example'):
+        a = o.numpyArray()
+        out.append(float(a[...,:3].std()) if a is not None else 0.0)
+print(json.dumps(out))
+"""
+    for _ in range(10):
+        stds = json.loads(run(conn, probe)["stdout"].strip().splitlines()[-1])
+        if stds and min(stds) >= 0.002:
+            break
+        wait_frames(conn, 60)
     outdir = ROOT / "validation" / "snippets"; outdir.mkdir(parents=True, exist_ok=True)
     r = run(conn, f"""
 import json, td
