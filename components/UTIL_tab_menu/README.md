@@ -9,7 +9,7 @@ library, grouped by family (TOP, POP, GEN, SDF, MAT, UTIL). Picking one creates 
 1. Drop `tox/UTIL/UTIL_tab_menu.tox` into your project (any network; it does not need inputs or wires) and keep it there.
 2. It installs itself (Autoinstall). `Status` says `installed: tab "td_plugins", N entries`; otherwise pulse **Install**.
 3. Press Tab (or double-click) in any network editor: choose the last tab, **td_plugins**. The search field filters it
-   like the built-in tabs (name, short name, description; non-matches are dimmed, the best match is highlighted).
+   like the built-in tabs (name, short name, description; non-matches are dimmed, the best match is highlighted). Hovering an entry shows its description and inputs/outputs in the dialog's bottom text area.
 4. Click an entry: a Base COMP with the component is created, named like the component with a counter
    (`TOP_glitch1`, `TOP_glitch2`...), in the network the dialog was opened for, and attached to the cursor for
    placement (same as built-in operators). Undo removes it.
@@ -47,6 +47,7 @@ All patches are made by `<comp>/tdp` (module), each is checked first (see Versio
 | 4 | `nodetable/script1_callbacks` (Script DAT callbacks) | block inserted after the line `currFamily = scriptOp.inputs[0][0,0].val`: when the selected tab is ours, `<comp>/tdp.module.cook(scriptOp, key)` fills the table (same columns as the stock `cook`: heading rows, entries, scores for search, layouts per entry) and returns; any error leaves an empty tab. |
 | 5 | `create_node` (Text DAT; `node_script`, the Panel Execute that runs the click, mirrors its text) | block inserted before `if($custom == "custom")`: rows whose `ordering` column is `tdplugins` run `<comp>/create "<pane>~<operator>~<nodepath>~<connectmode>~<type>~<connector>~<index>"` and exit; every other row follows the unchanged stock code. |
 | 6 | `launch_menu_op` (Text DAT) | two `cvar` lines after `cvar source = $source` remember the wire's node path and connector index (the stock script drops them) for the wiring of new components. |
+| 6b | `panelexec1` (Panel Execute; hover handler) | block inserted after the line `ty = op('current').text.strip()`: when the active tab is ours, the hovered cell's text comes from `<comp>/tdp.module.help(name, label)` instead of the stock `summaries` lookup, then returns. Entry: `label (NAME)`, the description from components.json / meta.json, and `In: ... Out: ...` from `labels.json`. Family heading rows show a one-line blurb (e.g. "TOP_: image filters and effects"). Built-in tabs are untouched. |
 | 7 | `nodetable/layouts/<key>` (new COMP) | copy of `nodetable/layouts/master`: the cell styles (`defFilter`, `defGenerator`, `defLabel`, `...Disable`) of our entries, coloured from row 2. |
 | 8 | `families/family/layouts/<key>` | created by the stock replicator from the family list (a copy is made if it did not); its tab width is set to fit the label (the stock tab buttons are 58 px wide). Only this copy is edited. |
 
@@ -54,7 +55,7 @@ Each inserted block is delimited by `# >>> td-plugins UTIL_tab_menu >>> owner=<c
 `# <<< td-plugins UTIL_tab_menu <<<`. The marker identifies the owner: a second UTIL_tab_menu does not patch
 twice (`Status`: `active via ...`), and a marker whose owner no longer exists is cleaned up before installing.
 
-**Restore.** Before touching anything the original text of the three DATs and the two tables is stored in the
+**Restore.** Before touching anything the original text of the four DATs and the two tables is stored in the
 component's storage (`orig`), mirrored in memory. Uninstall, destroying the component (an extension's `__delTD__`,
 also when a parent network is deleted), changing `Tablabel`, or renaming/moving it (OP Execute `watch`) put the exact
 texts back, destroy the added operators, reconnect `transpose1`, drop the layouts, and, if the tab was active, return
@@ -63,8 +64,8 @@ the added rows/column removed. Tested: all DATs of `/ui/dialogs/menu_op` hash id
 
 **Version guard.** Before patching, `check()` verifies: the operators above exist and have the expected types
 (`insert1`, `transpose1` fed by `insert1`, `colors`, `compatible`, `connectto`, `create_node`, `launch_menu_op`,
-`nodetable/script1_callbacks`, `nodetable/families` Script DAT, `nodetable/layouts/master`, the family replicator),
-the three anchor lines are present exactly once and `launch_menu_op` still takes `pane type source index nodepath`.
+`nodetable/script1_callbacks`, `panelexec1`, `nodetable/families` Script DAT, `nodetable/layouts/master`, the family replicator),
+the four anchor lines are present exactly once and `launch_menu_op` still takes `pane type source index nodepath`.
 If anything differs (e.g. after a TouchDesigner update) nothing is patched, `Status` reads
 `INCOMPATIBLE OP Create dialog, not patched: <reasons>` and a warning is printed. Developed against 2025.32820.
 
@@ -79,8 +80,8 @@ If anything differs (e.g. after a TouchDesigner update) nothing is patched, `Sta
 ## Limitations
 * The tab key is a legal operator name (hyphens become underscores); the tab is as wide as its label allows.
 * Search works inside the tab (the dialog has no cross-tab search); there is no "All" tab to search from.
-* Shift/Ctrl multi-add (keep the dialog open, chain nodes) and the right-click menu (help, snippets) are not provided for
-  our entries; one click creates one component.
+* Shift/Ctrl multi-add (keep the dialog open, chain nodes) is not provided; one click creates one component.
+* Right-click on an entry does nothing: the stock right-click menu (wiki page, Derivative snippets) only opens for rows with an `opType`, and ours have none, so no Derivative wiki page can be opened for a library component. The dialog's top-right `?` is the dialog's own help and is unchanged. Use the component's About > Help pulse for its README.
 * Only one UTIL_tab_menu can own the patch at a time. Components created from the tab are plain Base COMPs: with
   `embed` they do not follow library updates, with `link` they depend on the library path.
 * The list is read from the built `tox/<FAMILY>/*.tox` files; `Refresh List` after adding or rebuilding components.

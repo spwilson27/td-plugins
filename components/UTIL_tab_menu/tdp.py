@@ -26,7 +26,8 @@ PLACE = True                                 # False in tests: skip the interact
 A_COOK = '\tcurrFamily = scriptOp.inputs[0][0,0].val'
 A_CREATE = 'if($custom == "custom")'
 A_LAUNCH = 'cvar source = $source'
-TEXT_TARGETS = (('script', 'nodetable/script1_callbacks'), ('create_node', 'create_node'), ('launch', 'launch_menu_op'))
+A_HELP = "\tty = op('current').text.strip()"
+TEXT_TARGETS = (('script', 'nodetable/script1_callbacks'), ('create_node', 'create_node'), ('launch', 'launch_menu_op'), ('help', 'panelexec1'))
 
 
 def D(rel):
@@ -157,7 +158,7 @@ def check():
         return ['%s not found' % MENU]
     need = {'insert1': 'insert', 'transpose1': 'transpose', 'colors': 'table', 'compatible': 'table', 'connectto': 'table',
             'nodetable/script1_callbacks': 'text', 'create_node': 'text', 'nodetable/layouts/master': 'base',
-            'nodetable/families': 'script', 'families/family/layouts/replicator1': 'replicator', 'launch_menu_op': 'text'}
+            'nodetable/families': 'script', 'families/family/layouts/replicator1': 'replicator', 'launch_menu_op': 'text', 'panelexec1': 'panelexec'}
     for p, t in need.items():
         o = D(p)
         if o is None:
@@ -184,6 +185,11 @@ def check():
         bad.append('launch_menu_op: anchor "%s" not found once' % A_LAUNCH)
     if 'args pane type source index nodepath' not in t:
         bad.append('launch_menu_op: unexpected arguments')
+    t = D('panelexec1').text
+    if t.count(A_HELP) != 1 and MB not in t:
+        bad.append('panelexec1: anchor "%s" not found once' % A_HELP.strip())
+    if "op('help')" not in t:
+        bad.append('panelexec1: no help text output')
     cm = D('compatible')
     if cm.numRows < 2 or cm.numCols < 2:
         bad.append('compatible table has an unexpected shape')
@@ -259,6 +265,16 @@ def _launch_block():
     return ['cvar tdp_nodepath = "$nodepath"', 'cvar tdp_index = "$index"']
 
 
+def _help_block(k):
+    # hovering a cell: the stock valueChange looks up summaries[<tab> <label>]; ours asks the module
+    return ['\tif ty == %r:' % k,
+            '\t\ttry:',
+            "\t\t\top('help').text = op(%r).module.help(op('op_table')[int(panelValue) + 1, 'name'], n)" % (C.path + '/tdp'),
+            '\t\texcept Exception as e:',
+            "\t\t\top('help').text = ' '",
+            '\t\treturn']
+
+
 def _strip(text):
     return BLOCK_RE.sub('', text)
 
@@ -332,6 +348,7 @@ def _install(force):
             'script': D('nodetable/script1_callbacks').text,
             'create_node': D('create_node').text,
             'launch': D('launch_menu_op').text,
+            'help': D('panelexec1').text,
             }
     C.store('orig', orig)
     C.store('tabkey', k)
@@ -349,6 +366,7 @@ def _install(force):
     D('nodetable/script1_callbacks').text = _insert_after(orig['script'], A_COOK, _cook_block(k))
     D('create_node').text = _insert_before(orig['create_node'], A_CREATE, _create_block(k))
     D('launch_menu_op').text = _insert_after(orig['launch'], A_LAUNCH, _launch_block())
+    D('panelexec1').text = _insert_after(orig['help'], A_HELP, _help_block(k))
     # ---- 4. layout for our entries (same structure as the stock per-family layouts, colour from `colors`)
     lay = D('nodetable/layouts')
     if lay.op(k) is None:
@@ -566,6 +584,34 @@ def cook(scriptOp, k):
     if count % rows:
         for _ in range(rows - count % rows):
             scriptOp.appendRow()
+
+
+FAM_HELP = {'TOP': 'TOP_: image filters and effects (in1 = image)', 'POP': 'POP_: geometry (POP) filters',
+            'GEN': 'GEN_: generators, no required input', 'SDF': 'SDF_: signed distance field building blocks (wire = DAT)',
+            'MAT': 'MAT_: materials (out1 = Out MAT)', 'UTIL': 'UTIL_: utilities that act on your network'}
+
+
+def help(name, label):
+    """One-line summary + inputs/outputs for the dialog's description area (hover). Headings get a family blurb."""
+    name = getattr(name, 'val', name) or ''
+    label = getattr(label, 'val', label) or ''
+    if not name:
+        return FAM_HELP.get(label, ' ')
+    e = next((x for x in entries() if x['name'] == name), None)
+    if e is None:
+        return ' '
+    txt = e['description'] or name
+    try:
+        lb = json.load(open(os.path.join(root(), 'components', name, 'labels.json')))
+    except Exception:
+        try:
+            lb = json.load(open(os.path.join(root(), 'io_labels.json'))).get(name, {})
+        except Exception:
+            lb = {}
+    ins = ', '.join(v for k, v in sorted((lb.get('inputs') or {}).items()))
+    outs = ', '.join(v for k, v in sorted((lb.get('outputs') or {}).items()))
+    io = '  '.join(x for x in (('In: ' + ins) if ins else '', ('Out: ' + outs) if outs else '') if x)
+    return '%s (%s)\n%s%s' % (e['label'], name, txt, ('\n' + io) if io else '')
 
 
 # ------------------------------------------------------------------------------------- creating
