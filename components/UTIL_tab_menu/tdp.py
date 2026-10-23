@@ -611,7 +611,7 @@ def help(name, label):
     ins = ', '.join(v for k, v in sorted((lb.get('inputs') or {}).items()))
     outs = ', '.join(v for k, v in sorted((lb.get('outputs') or {}).items()))
     io = '  '.join(x for x in (('In: ' + ins) if ins else '', ('Out: ' + outs) if outs else '') if x)
-    return '%s (%s)\n%s%s' % (e['label'], name, txt, ('\n' + io) if io else '')
+    return txt + (('\n\n' + io) if io else '')
 
 
 # ------------------------------------------------------------------------------------- creating
