@@ -495,5 +495,12 @@
   "family": "SDF",
   "description": "SDF primitive from POP geometry: points become smooth-unioned metaballs (live, GPU grid), or a closed mesh is baked into a distance volume (lossy). Wire its SDF output into other SDF_ nodes.",
   "version": "1.0.0"
+ },
+ {
+  "old": "",
+  "name": "UTIL_tab_menu",
+  "family": "UTIL",
+  "description": "Adds a td-plugins tab to the OP Create dialog (Tab menu) listing every library component; picking one creates it like a built-in operator",
+  "version": "1.0.0"
  }
 ]

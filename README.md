@@ -1,7 +1,8 @@
 # td-plugins
 
-71 reusable TouchDesigner components (`.tox`) for VJ work, generative visuals and post effects. They were built and tested on TouchDesigner 2025.32820 (macOS).
+72 reusable TouchDesigner components (`.tox`) for VJ work, generative visuals and post effects. They were built and tested on TouchDesigner 2025.32820 (macOS).
 
+**Tab menu:** drop `tox/UTIL/UTIL_tab_menu.tox` into your project (or a startup template) and every component appears under a **td_plugins** tab in the OP Create Dialog (Tab key), grouped by family and searchable. It re-installs itself each time the project starts, since TouchDesigner rebuilds its UI on launch.
 **Using a component:** add `~/software/td-plugins/tox` as a Palette folder (or drag `tox/<FAMILY>/<NAME>.tox` into your network). The name prefix tells you what it takes: `TOP_` an image, `POP_` geometry, `GEN_` nothing (generator), `MAT_` a material at `<comp>/mat`. Output connectors are labelled; `out1` is always the final image.
 **Examples:** every component has 1–3 example networks, like TouchDesigner's OP Snippets. Pulse About ▸ Snippets on the component, or open `snippets/<NAME>.tox`.
 **Docs:** About ▸ Help, or `components/<NAME>/README.md`, covers its inputs, outputs, parameters and limitations.
@@ -111,6 +112,7 @@
 | tox | what |
 |---|---|
 | UTIL_auto_arrange | Arrange a network: left-to-right flow, no overlapping nodes (td_organize) |
+| UTIL_tab_menu | Adds a td-plugins tab to the OP Create dialog (Tab menu) listing every library component; picking one creates it like a built-in operator |
 
 ## Native operators vs GLSL
 Components are built from built-in TouchDesigner operators where possible, so a non-programmer can read the network; GLSL remains only for mathy cores or where native would cost more than 20 % GPU (see each component README's "Implementation" section). GPU cost of the 25 reworked components, old GLSL version → current, measured with `tools/bench.py --against` (interleaved medians, standard noise-TOP / grid-POP input, only ops that cooked counted):

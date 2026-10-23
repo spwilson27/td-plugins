@@ -511,5 +511,11 @@
   "outputs": {
    "out1": "SDF (DAT)"
   }
+ },
+ "UTIL_tab_menu": {
+  "inputs": {},
+  "outputs": {
+   "out1": "installed entries"
+  }
  }
 }

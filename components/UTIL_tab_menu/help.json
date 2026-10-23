@@ -1,0 +1,9 @@
+{
+ "Install": "Patch the OP Create dialog (Tab menu) now: adds the library tab. Safe to press repeatedly; does nothing if it is already installed. Check Status.",
+ "Uninstall": "Remove the tab and restore every patched text and table of the OP Create dialog exactly as it was.",
+ "Autoinstall": "Install automatically when the project starts and when this component is created or loaded. The dialog is rebuilt on every TouchDesigner launch, so keep this component in your project (or a startup template).",
+ "Refresh": "Rescan <Library Root>/tox/*/*.tox and update the tab's list (and the out1 table).",
+ "Tablabel": "Text shown on the new tab. It is also the tab's internal family name, so it is converted to a legal operator name (td-plugins becomes td_plugins). Changing it re-installs.",
+ "Createmode": "embed: the new Base COMP contains a copy of the library tox (self-contained project). link: the COMP points at the library tox through its External Tox parameter and stays up to date with the library.",
+ "Status": "Result of the last install/uninstall. Shows INCOMPATIBLE and the reason if the OP Create dialog of this TouchDesigner version differs from what the patches expect (nothing is patched then)."
+}
